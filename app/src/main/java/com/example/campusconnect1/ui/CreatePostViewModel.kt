@@ -1,4 +1,3 @@
-// CreatePostViewModel.kt
 package com.example.campusconnect1.ui
 
 import android.content.Context
@@ -23,8 +22,7 @@ enum class PostState { IDLE, LOADING, SUCCESS, ERROR }
 
 class CreatePostViewModel : ViewModel() {
 
-    // ⚠️⚠️ PENTING: API KEY HARUS DIISI DI SINI JUGA! ⚠️⚠️
-    // (Jangan biarkan kosong atau placeholder)
+    // ⚠️ JANGAN LUPA ISI API KEY IMGBB ANDA DI SINI
     private val IMGBB_API_KEY = "2c12842237f145326b7757264381a895"
 
     private val firestore = FirebaseFirestore.getInstance()
@@ -33,52 +31,49 @@ class CreatePostViewModel : ViewModel() {
     private val _postState = MutableStateFlow(PostState.IDLE)
     val postState: StateFlow<PostState> = _postState
 
-    fun createPost(context: Context, text: String, imageUri: Uri?) {
+    // 👇 UPDATE: Tambahkan parameter groupId (Default null)
+    fun createPost(context: Context, text: String, imageUri: Uri?, groupId: String? = null) {
         viewModelScope.launch {
             _postState.value = PostState.LOADING
 
             try {
                 val user = auth.currentUser ?: throw IllegalStateException("User belum login!")
-                val userDoc = firestore.collection("users").document(user.uid).get().await()
 
+                // Ambil Data User
+                val userDoc = firestore.collection("users").document(user.uid).get().await()
                 val authorName = userDoc.getString("fullName") ?: "Anonymous"
                 val universityId = userDoc.getString("universityId") ?: "Unknown"
-                val authorAvatarUrl = userDoc.getString("profilePictureUrl") ?: "" // Ambil avatar user
-                val isAccountVerified = userDoc.getBoolean("verified") ?: false
+                val authorAvatarUrl = userDoc.getString("profilePictureUrl") ?: ""
 
+                // Cek status verified
+                val isAccountVerified = userDoc.getBoolean("verified") ?: false
                 if (!isAccountVerified) {
                     throw IllegalStateException("Maaf, akun Anda belum terverifikasi.")
                 }
 
                 var imageUrl: String? = null
 
-                // --- PROSES UPLOAD GAMBAR ---
+                // Upload Gambar (Jika ada)
                 if (imageUri != null) {
-                    Log.d("CreatePost", "Mulai upload gambar post...")
                     val inputStream = context.contentResolver.openInputStream(imageUri)
                     val bytes = inputStream?.readBytes()
                     inputStream?.close()
 
                     if (bytes != null) {
                         val reqFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-                        val body = MultipartBody.Part.createFormData("image", "post_img.jpg", reqFile)
+                        val body = MultipartBody.Part.createFormData("image", "upload.jpg", reqFile)
 
                         val response = RetrofitClient.instance.uploadImage(IMGBB_API_KEY, body)
 
                         if (response.isSuccessful && response.body()?.success == true) {
                             imageUrl = response.body()?.data?.url
-                            Log.d("CreatePost", "Upload Sukses! URL: $imageUrl")
                         } else {
-                            val errorMsg = response.errorBody()?.string()
-                            Log.e("CreatePost", "Gagal Upload ImgBB: $errorMsg")
-                            throw Exception("Gagal upload gambar ke server.")
+                            throw Exception("Gagal upload gambar ke imgbb")
                         }
                     }
                 }
 
-                // --- SIMPAN KE FIRESTORE ---
-                // Kita TIDAK isi postId (biarkan Firestore generate)
-                // Kita isi authorAvatarUrl agar foto profil muncul di post baru
+                // Simpan Postingan
                 val newPost = Post(
                     authorId = user.uid,
                     authorName = authorName,
@@ -89,11 +84,13 @@ class CreatePostViewModel : ViewModel() {
                     timestamp = Date(),
                     voteCount = 0,
                     commentCount = 0,
-                    likedBy = emptyList()
+                    likedBy = emptyList(),
+
+                    // 👇 ISI GROUP ID DI SINI (Bisa null jika postingan biasa)
+                    groupId = groupId
                 )
 
                 firestore.collection("posts").add(newPost).await()
-                Log.d("CreatePost", "Postingan berhasil disimpan ke Firestore")
 
                 _postState.value = PostState.SUCCESS
 

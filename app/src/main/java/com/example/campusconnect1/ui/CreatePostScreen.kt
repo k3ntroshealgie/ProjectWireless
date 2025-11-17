@@ -9,7 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -20,8 +19,10 @@ import coil.compose.AsyncImage
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreatePostScreen(
-    onPostSuccess: () -> Unit, // Callback saat sukses (untuk kembali ke Home)
-    onBack: () -> Unit,        // Callback tombol kembali
+    onPostSuccess: () -> Unit,
+    onBack: () -> Unit,
+    // 👇 UPDATE: Terima parameter groupId
+    groupId: String? = null,
     viewModel: CreatePostViewModel = viewModel()
 ) {
     var text by remember { mutableStateOf("") }
@@ -30,20 +31,18 @@ fun CreatePostScreen(
     val postState by viewModel.postState.collectAsState()
     val context = LocalContext.current
 
-    // Launcher untuk memilih gambar dari Galeri
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         imageUri = uri
     }
 
-    // Efek Samping untuk Toast & Navigasi
     LaunchedEffect(postState) {
         when(postState) {
             PostState.SUCCESS -> {
                 Toast.makeText(context, "Postingan berhasil dibuat!", Toast.LENGTH_SHORT).show()
                 viewModel.resetState()
-                onPostSuccess() // Kembali ke Home
+                onPostSuccess()
             }
             PostState.ERROR -> {
                 Toast.makeText(context, "Gagal membuat postingan.", Toast.LENGTH_SHORT).show()
@@ -56,7 +55,7 @@ fun CreatePostScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Buat Postingan") },
+                title = { Text(if (groupId != null) "Post to Group" else "Create Post") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
@@ -71,27 +70,21 @@ fun CreatePostScreen(
                 .padding(16.dp)
                 .fillMaxSize()
         ) {
-            // Input Teks
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
                 label = { Text("Apa yang Anda pikirkan?") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
+                modifier = Modifier.fillMaxWidth().height(150.dp),
                 maxLines = 5
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Tombol Pilih Gambar & Preview
             if (imageUri != null) {
                 AsyncImage(
                     model = imageUri,
                     contentDescription = "Preview",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
                     contentScale = ContentScale.Crop
                 )
                 TextButton(onClick = { imageUri = null }) {
@@ -106,11 +99,13 @@ fun CreatePostScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f)) // Dorong tombol ke bawah
+            Spacer(modifier = Modifier.weight(1f))
 
-            // Tombol Posting
             Button(
-                onClick = { viewModel.createPost(context, text, imageUri) },
+                onClick = {
+                    // 👇 UPDATE: Kirim groupId ke ViewModel
+                    viewModel.createPost(context, text, imageUri, groupId)
+                },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 enabled = text.isNotEmpty() && postState != PostState.LOADING
             ) {
