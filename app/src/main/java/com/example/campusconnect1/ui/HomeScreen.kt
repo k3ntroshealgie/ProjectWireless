@@ -6,12 +6,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.* // Import semua icon
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.campusconnect1.Post
@@ -24,26 +23,28 @@ fun HomeScreen(
     onFabClick: () -> Unit,
     onLogout: () -> Unit,
     onPostClick: (String) -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    // 👇 UPDATE: Callback baru untuk membuka daftar grup
+    // Mengirim String (ID Kampus yang sedang dilihat)
+    onGroupClick: (String) -> Unit
 ) {
-    // Perhatikan: Kita pakai 'filteredPosts' sekarang, bukan 'posts'
+    // State dari ViewModel
     val posts by homeViewModel.filteredPosts.collectAsState()
     val searchText by homeViewModel.searchText.collectAsState()
-
     val isLoading by homeViewModel.isLoading.collectAsState()
-    val currentUni by homeViewModel.currentViewUniversity.collectAsState()
+    val currentUni by homeViewModel.currentViewUniversity.collectAsState() // Kampus yang sedang dilihat
     val canPost by homeViewModel.canPost.collectAsState()
     val currentSort by homeViewModel.currentSortType.collectAsState()
     val universities = homeViewModel.availableUniversities
 
     var expanded by remember { mutableStateOf(false) }
-    // State untuk Mode Pencarian
     var isSearching by remember { mutableStateOf(false) }
 
-    // Dialog Edit State
+    // State Dialog Edit Post
     var postToEdit by remember { mutableStateOf<Post?>(null) }
     var editTextField by remember { mutableStateOf("") }
 
+    // Dialog Edit UI
     if (postToEdit != null) {
         AlertDialog(
             onDismissRequest = { postToEdit = null },
@@ -70,7 +71,7 @@ fun HomeScreen(
         topBar = {
             Column {
                 if (isSearching) {
-                    // --- TAMPILAN SEARCH BAR ---
+                    // --- SEARCH BAR MODE ---
                     TopAppBar(
                         title = {
                             TextField(
@@ -79,32 +80,23 @@ fun HomeScreen(
                                 placeholder = { Text("Search posts...") },
                                 singleLine = true,
                                 colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedIndicatorColor = Color.Transparent,
-                                    unfocusedIndicatorColor = Color.Transparent
+                                    focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
                         },
                         navigationIcon = {
-                            IconButton(onClick = {
-                                isSearching = false
-                                homeViewModel.onSearchTextChange("") // Reset search
-                            }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                            IconButton(onClick = { isSearching = false; homeViewModel.onSearchTextChange("") }) {
+                                Icon(Icons.Default.ArrowBack, "Back")
                             }
                         },
                         actions = {
-                            if (searchText.isNotEmpty()) {
-                                IconButton(onClick = { homeViewModel.onSearchTextChange("") }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Clear")
-                                }
-                            }
+                            if (searchText.isNotEmpty()) IconButton(onClick = { homeViewModel.onSearchTextChange("") }) { Icon(Icons.Default.Close, "Clear") }
                         }
                     )
                 } else {
-                    // --- TAMPILAN NORMAL ---
+                    // --- NORMAL MODE ---
                     TopAppBar(
                         title = {
                             Row(
@@ -125,7 +117,11 @@ fun HomeScreen(
                             titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ),
                         actions = {
-                            // Tombol Search
+                            // 👇 TOMBOL GRUP (Panggil callback dengan currentUni)
+                            IconButton(onClick = { onGroupClick(currentUni) }) {
+                                Icon(Icons.Default.List, contentDescription = "Groups")
+                            }
+
                             IconButton(onClick = { isSearching = true }) {
                                 Icon(Icons.Default.Search, contentDescription = "Search")
                             }
@@ -142,8 +138,8 @@ fun HomeScreen(
                     )
                 }
 
-                // Filter Bar
-                if (!isSearching) { // Sembunyikan filter saat searching biar bersih
+                // --- FILTER CHIPS ---
+                if (!isSearching) {
                     Row(
                         modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -165,6 +161,7 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
+            // FAB hanya muncul jika user punya izin posting di kampus ini (Bukan Tamu)
             if (canPost && !isSearching) {
                 FloatingActionButton(onClick = onFabClick) {
                     Icon(Icons.Default.Add, contentDescription = "New Post")
@@ -178,11 +175,8 @@ fun HomeScreen(
             } else {
                 if (posts.isEmpty()) {
                     Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (searchText.isNotEmpty()) {
-                            Text("No results found for '$searchText'")
-                        } else {
-                            Text("No posts yet in $currentUni.")
-                        }
+                        Text(if (searchText.isNotEmpty()) "No results for '$searchText'" else "No posts yet in $currentUni.")
+                        if (canPost) Text("Be the first to post!")
                     }
                 } else {
                     LazyColumn {
