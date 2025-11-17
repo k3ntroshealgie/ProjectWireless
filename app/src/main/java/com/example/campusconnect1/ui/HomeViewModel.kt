@@ -2,12 +2,16 @@ package com.example.campusconnect1.ui
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.campusconnect1.Post
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 
 enum class SortType { POPULAR, NEWEST }
 
@@ -16,33 +20,55 @@ class HomeViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    // Data Postingan
-    private val _posts = MutableStateFlow<List<Post>>(emptyList())
-    val posts: StateFlow<List<Post>> = _posts
+    // Data Mentah dari Database
+    private val _rawPosts = MutableStateFlow<List<Post>>(emptyList())
+
+    // Text Pencarian
+    private val _searchText = MutableStateFlow("")
+    val searchText: StateFlow<String> = _searchText
+
+    // 👇 LOGIKA FILTER PINTAR:
+    // Menggabungkan Data Mentah + Text Search -> Menghasilkan Data Tersaring
+    val filteredPosts: StateFlow<List<Post>> = _searchText
+        .combine(_rawPosts) { text, posts ->
+            if (text.isBlank()) {
+                posts // Jika search kosong, tampilkan semua
+            } else {
+                // Filter postingan yang isinya mengandung text pencarian (ignore case)
+                posts.filter { post ->
+                    post.text.contains(text, ignoreCase = true) ||
+                            post.authorName.contains(text, ignoreCase = true)
+                }
+            }
+        }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
+        )
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    // Kampus Asli User
-    private var myUniversityId: String = ""
-
-    // Kampus yang sedang dilihat
     private val _currentViewUniversity = MutableStateFlow("Loading...")
     val currentViewUniversity: StateFlow<String> = _currentViewUniversity
 
-    // Izin Posting
     private val _canPost = MutableStateFlow(false)
     val canPost: StateFlow<Boolean> = _canPost
 
-    // Sorting State
     private val _currentSortType = MutableStateFlow(SortType.POPULAR)
     val currentSortType: StateFlow<SortType> = _currentSortType
 
-    // Daftar Kampus
+    private var myUniversityId: String = ""
     val availableUniversities = listOf("ITB", "UI", "UGM", "ITS", "IPB", "UNAIR", "UNDIP", "UNPAD", "TELKOMU", "PU", "UNSRI")
 
     init {
         initializeUser()
+    }
+
+    // Update text search saat user mengetik
+    fun onSearchTextChange(text: String) {
+        _searchText.value = text
     }
 
     private fun initializeUser() {
@@ -56,18 +82,14 @@ class HomeViewModel : ViewModel() {
                     switchCampus(myUniversityId)
                 }
             }
-            .addOnFailureListener {
-                _isLoading.value = false
-            }
+            .addOnFailureListener { _isLoading.value = false }
     }
 
-    // Fungsi Ganti Sortir
     fun switchSortType(sortType: SortType) {
         _currentSortType.value = sortType
         startListeningToPosts(_currentViewUniversity.value, sortType)
     }
 
-    // Fungsi Ganti Kampus
     fun switchCampus(targetUniversity: String) {
         _currentViewUniversity.value = targetUniversity
         _canPost.value = (targetUniversity == myUniversityId)
@@ -78,7 +100,6 @@ class HomeViewModel : ViewModel() {
         _isLoading.value = true
 
         val orderByField = if (sortType == SortType.POPULAR) "voteCount" else "timestamp"
-        Log.d("HomeViewModel", "Fetching $universityId sorted by $orderByField")
 
         firestore.collection("posts")
             .whereEqualTo("universityId", universityId)
@@ -91,14 +112,13 @@ class HomeViewModel : ViewModel() {
                 }
 
                 if (snapshot != null) {
-                    val postList = snapshot.toObjects(Post::class.java)
-                    _posts.value = postList
+                    // Simpan ke _rawPosts (Data Mentah)
+                    _rawPosts.value = snapshot.toObjects(Post::class.java)
                 }
                 _isLoading.value = false
             }
     }
 
-    // Fungsi Like/Unlike
     fun toggleLike(post: Post) {
         val userId = auth.currentUser?.uid ?: return
         val postRef = firestore.collection("posts").document(post.postId)
@@ -119,33 +139,17 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    // 👇👇 FUNGSI DELETE (YANG TADI MISSING) 👇👇
     fun deletePost(post: Post) {
         val userId = auth.currentUser?.uid ?: return
-
-        // Validasi pemilik
         if (post.authorId == userId) {
-            firestore.collection("posts").document(post.postId)
-                .delete()
-                .addOnSuccessListener {
-                    Log.d("HomeViewModel", "Post deleted successfully")
-                }
-                .addOnFailureListener { e ->
-                    Log.e("HomeViewModel", "Error deleting post", e)
-                }
+            firestore.collection("posts").document(post.postId).delete()
         }
     }
 
-    // 👇👇 FUNGSI UPDATE (YANG TADI MISSING) 👇👇
     fun updatePost(post: Post, newText: String) {
         val userId = auth.currentUser?.uid ?: return
-
         if (post.authorId == userId) {
-            firestore.collection("posts").document(post.postId)
-                .update("text", newText)
-                .addOnSuccessListener {
-                    Log.d("HomeViewModel", "Post updated successfully")
-                }
+            firestore.collection("posts").document(post.postId).update("text", newText)
         }
     }
 
