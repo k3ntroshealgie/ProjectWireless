@@ -3,10 +3,11 @@ package com.example.campusconnect1.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite       // Filled Heart
-import androidx.compose.material.icons.filled.FavoriteBorder // Outlined Heart
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert // Ikon Titik Tiga
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,11 +22,20 @@ import com.google.firebase.auth.FirebaseAuth
 @Composable
 fun PostCard(
     post: Post,
-    onLikeClick: (Post) -> Unit // Callback for like action
+    onLikeClick: (Post) -> Unit,
+    onCommentClick: (Post) -> Unit,
+    // 👇 Callback baru untuk Edit & Delete
+    onEditClick: (Post) -> Unit = {},
+    onDeleteClick: (Post) -> Unit = {}
 ) {
-    // Get current user ID to check if they liked the post
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     val isLiked = post.likedBy.contains(currentUserId)
+
+    // Cek: Apakah yang login = Pemilik Postingan?
+    val isOwner = currentUserId == post.authorId
+
+    // State untuk membuka/tutup menu
+    var showMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -36,43 +46,70 @@ fun PostCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // --- HEADER: Avatar + Name + University ---
+            // --- HEADER ---
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    modifier = Modifier.size(40.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        // Placeholder avatar (First letter of name)
-                        Text(
-                            text = post.authorName.take(1).uppercase(),
-                            fontWeight = FontWeight.Bold
-                        )
+                // Avatar Logic
+                if (post.authorAvatarUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = post.authorAvatarUrl,
+                        contentDescription = "Avatar",
+                        modifier = Modifier.size(40.dp).clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(text = post.authorName.take(1).uppercase(), fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
+
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
+
+                // Nama & Kampus
+                Column(modifier = Modifier.weight(1f)) {
                     Text(text = post.authorName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(text = post.universityId, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                }
+
+                // 👇 MENU TITIK TIGA (Hanya untuk Owner)
+                if (isOwner) {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Edit") },
+                                onClick = {
+                                    onEditClick(post)
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = Color.Red) },
+                                onClick = {
+                                    onDeleteClick(post)
+                                    showMenu = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-
-            // --- CONTENT: Text ---
             Text(text = post.text, style = MaterialTheme.typography.bodyMedium)
 
-            // --- CONTENT: Image (Optional) ---
             if (post.imageUrl != null && post.imageUrl.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 AsyncImage(
                     model = post.imageUrl,
                     contentDescription = "Post Image",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(MaterialTheme.shapes.medium),
+                    modifier = Modifier.fillMaxWidth().height(200.dp).clip(MaterialTheme.shapes.medium),
                     contentScale = ContentScale.Crop
                 )
             }
@@ -80,26 +117,21 @@ fun PostCard(
             Spacer(modifier = Modifier.height(12.dp))
             Divider(color = MaterialTheme.colorScheme.outlineVariant)
 
-            // --- ACTIONS: Like & Comment Buttons ---
+            // --- ACTIONS ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // LIKE BUTTON
                 TextButton(onClick = { onLikeClick(post) }) {
                     Icon(
-                        // Switch icon based on like state
                         imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Like",
-                        // Switch color (Red if liked)
                         tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.width(4.dp))
                     Text("${post.voteCount} Likes")
                 }
-
-                // COMMENT BUTTON (Logic to be implemented later)
-                TextButton(onClick = { /* TODO: Open Detail Screen */ }) {
+                TextButton(onClick = { onCommentClick(post) }) {
                     Text("${post.commentCount} Comments")
                 }
             }
