@@ -1,4 +1,3 @@
-// LoginScreen.kt
 package com.example.campusconnect1.ui
 
 import android.widget.Toast
@@ -21,8 +20,8 @@ import com.example.campusconnect1.auth.AuthViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit,      // Callback jika login berhasil
-    onNavigateToRegister: () -> Unit, // Callback untuk pindah ke layar daftar
+    onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit,
     authViewModel: AuthViewModel = viewModel()
 ) {
     var email by remember { mutableStateOf("") }
@@ -31,7 +30,7 @@ fun LoginScreen(
     val authState by authViewModel.authResult.collectAsState()
     val context = LocalContext.current
 
-    // Efek Samping untuk Navigasi
+    // Side Effect for Navigation
     LaunchedEffect(authState) {
         when (authState.state) {
             AuthState.SUCCESS -> {
@@ -48,7 +47,9 @@ fun LoginScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -84,7 +85,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Tombol Login
+        // Login Button
         Button(
             onClick = { authViewModel.loginUser(email, password) },
             modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -101,11 +102,9 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Tombol Pindah ke Register
+        // Link to Register
         TextButton(onClick = onNavigateToRegister) {
             Text("Don't have an account? Register here")
         }
-        Spacer(modifier = Modifier.height(32.dp))
-
     }
 }

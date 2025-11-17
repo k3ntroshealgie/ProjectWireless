@@ -13,61 +13,75 @@ class DatabaseSeeder {
     private val firestore = FirebaseFirestore.getInstance()
     private val collection = firestore.collection("allowed_nims")
 
-    // Daftar Kampus sesuai permintaan
+    // 12 Kampus
     private val universities = listOf(
         "PU", "ITS", "UB", "IPB", "UNSRI",
         "TELKOMU", "UGM", "UNAIR", "UNDIP", "UNPAD", "UI", "ITB"
     )
 
-    // Kode Jurusan: 001 (IT), 002 (Bisnis), 003 (Manajemen)
-    private val majors = listOf("001", "002", "003")
+    // Generates majors "001" to "010"
+    private val majors = (1..10).map { String.format("%03d", it) }
 
-    fun seedData(onComplete: (String) -> Unit) {
+    // 👇 TARGET TOTAL 1.000 PER KAMPUS
+    // Karena ada 10 jurusan, maka per jurusan kita isi 100 orang.
+    // 100 mhs x 10 jurusan = 1.000 mhs/kampus.
+    // Total semua kampus = 12.000 dokumen (Aman untuk Free Tier)
+    private val studentCountPerMajor = 100
+
+    fun seedData(onUpdate: (String) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val batch = firestore.batch() // Batch agar prosesnya cepat (sekaligus)
-                var count = 0
+                var batch = firestore.batch()
+                var operationCount = 0
+                var totalUploaded = 0
+
+                onUpdate("Memulai... Target total: 12.000 data.")
 
                 universities.forEach { uniId ->
                     majors.forEach { majorCode ->
-                        // Kita buat 5 Mahasiswa per jurusan di setiap kampus
-                        // Pattern: KODE_JURUSAN + TAHUN(2024) + URUTAN(0000X)
-                        // Contoh: 001202400001
-                        for (i in 1..5) {
-                            val sequence = String.format("%05d", i) // Mengubah 1 jadi "00001"
+
+                        // Loop Mahasiswa (00001 s/d 00100)
+                        for (i in 1..studentCountPerMajor) {
+                            val sequence = String.format("%05d", i)
                             val generatedNim = "${majorCode}2024${sequence}"
 
-                            // Data Mahasiswa
-                            val docRefStudent = collection.document() // Auto ID
-                            val dataStudent = AllowedNIM(
+                            val docRef = collection.document()
+                            val data = AllowedNIM(
                                 nim = generatedNim,
                                 universityId = uniId,
                                 role = "student"
                             )
-                            batch.set(docRefStudent, dataStudent)
-                            count++
-                        }
 
-                        // Kita tambahkan 1 Dosen per jurusan
-                        // Format NIM Dosen beda dikit, misal depannya 999
-                        val dosenNim = "999${majorCode}202401"
-                        val docRefDosen = collection.document()
-                        val dataDosen = AllowedNIM(
-                            nim = dosenNim,
-                            universityId = uniId,
-                            role = "dosen"
-                        )
-                        batch.set(docRefDosen, dataDosen)
-                        count++
+                            batch.set(docRef, data)
+                            operationCount++
+
+                            // Kirim setiap 400 data
+                            if (operationCount >= 400) {
+                                batch.commit().await()
+                                totalUploaded += operationCount
+
+                                // Reset batch & counter
+                                batch = firestore.batch()
+                                operationCount = 0
+
+                                // Kabari UI
+                                onUpdate("Proses... Terupload: $totalUploaded / 12.000")
+                            }
+                        }
                     }
                 }
 
-                batch.commit().await()
-                onComplete("Sukses! Berhasil menambahkan $count data NIM ke Database.")
+                // Kirim sisa data di akhir
+                if (operationCount > 0) {
+                    batch.commit().await()
+                    totalUploaded += operationCount
+                }
+
+                onUpdate("SELESAI! Total $totalUploaded NIM berhasil ditambahkan.")
 
             } catch (e: Exception) {
                 Log.e("Seeder", "Gagal seed data", e)
-                onComplete("Error: ${e.message}")
+                onUpdate("Error: ${e.message}")
             }
         }
     }

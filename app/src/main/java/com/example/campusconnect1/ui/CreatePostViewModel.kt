@@ -16,13 +16,14 @@ import kotlinx.coroutines.tasks.await
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.Date // 👈 PENTING: Import ini untuk waktu saat ini
+import java.util.Date // PENTING: Untuk waktu saat ini
 
+// Status UI
 enum class PostState { IDLE, LOADING, SUCCESS, ERROR }
 
 class CreatePostViewModel : ViewModel() {
 
-    // ⚠️ JANGAN LUPA KEMBALIKAN API KEY IMGBB ANDA DI SINI
+    // ⚠️ JANGAN LUPA ISI API KEY IMGBB ANDA DI SINI
     private val IMGBB_API_KEY = "MASUKKAN_API_KEY_DISINI"
 
     private val firestore = FirebaseFirestore.getInstance()
@@ -36,20 +37,20 @@ class CreatePostViewModel : ViewModel() {
             _postState.value = PostState.LOADING
 
             try {
-                // 1. Cek User Login
+                // 1. Cek Login
                 val user = auth.currentUser ?: throw IllegalStateException("User belum login!")
 
-                // 2. Ambil data user lengkap
+                // 2. Ambil Data User (Cek Verified)
                 val userDoc = firestore.collection("users").document(user.uid).get().await()
 
                 val authorName = userDoc.getString("fullName") ?: "Anonymous"
                 val universityId = userDoc.getString("universityId") ?: "Unknown"
 
-                // Cek status verified (sesuaikan nama field dengan database)
+                // Cek status 'verified' (sesuai field di database)
                 val isAccountVerified = userDoc.getBoolean("verified") ?: false
 
                 if (!isAccountVerified) {
-                    throw IllegalStateException("Maaf, akun Anda belum terverifikasi untuk posting di kampus ini.")
+                    throw IllegalStateException("Maaf, akun Anda belum terverifikasi.")
                 }
 
                 var imageUrl: String? = null
@@ -75,6 +76,8 @@ class CreatePostViewModel : ViewModel() {
                 }
 
                 // 4. Simpan Postingan
+                // PERHATIKAN: Kita TIDAK mengisi 'postId' di sini.
+                // Firestore akan otomatis membuatkan ID unik saat kita panggil .add()
                 val newPost = Post(
                     authorId = user.uid,
                     authorName = authorName,
@@ -82,15 +85,15 @@ class CreatePostViewModel : ViewModel() {
                     text = text,
                     imageUrl = imageUrl,
 
-                    // 👇 PERBAIKAN UTAMA:
-                    // Isi timestamp dengan waktu HP saat ini (Date())
-                    // Agar tidak null dan langsung muncul di query orderBy
+                    // Gunakan waktu HP saat ini agar langsung muncul di Feed
                     timestamp = Date(),
 
                     voteCount = 0,
-                    commentCount = 0
+                    commentCount = 0,
+                    likedBy = emptyList()
                 )
 
+                // Gunakan .add() -> Firestore generate ID otomatis -> DataModels @DocumentId akan membacanya nanti
                 firestore.collection("posts").add(newPost).await()
 
                 _postState.value = PostState.SUCCESS
