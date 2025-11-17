@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.campusconnect1.Post
 import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,10 +27,9 @@ fun HomeScreen(
     homeViewModel: HomeViewModel = viewModel(),
     onFabClick: () -> Unit,
     onLogout: () -> Unit,
-    // 👇 Parameter baru untuk menangani klik pada postingan (pindah ke detail)
-    onPostClick: (String) -> Unit
+    onPostClick: (String) -> Unit,
+    onProfileClick: () -> Unit
 ) {
-    // Mengambil state dari ViewModel
     val posts by homeViewModel.posts.collectAsState()
     val isLoading by homeViewModel.isLoading.collectAsState()
     val currentUni by homeViewModel.currentViewUniversity.collectAsState()
@@ -38,23 +39,51 @@ fun HomeScreen(
     val universities = homeViewModel.availableUniversities
     var expanded by remember { mutableStateOf(false) }
 
+    // 👇 STATE UNTUK DIALOG EDIT
+    var postToEdit by remember { mutableStateOf<Post?>(null) }
+    var editTextField by remember { mutableStateOf("") }
+
+    // 👇 POPUP DIALOG EDIT
+    if (postToEdit != null) {
+        AlertDialog(
+            onDismissRequest = { postToEdit = null },
+            title = { Text("Edit Post") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editTextField,
+                        onValueChange = { editTextField = it },
+                        label = { Text("Content") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 5
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    // Panggil fungsi update di ViewModel
+                    homeViewModel.updatePost(postToEdit!!, editTextField)
+                    postToEdit = null // Tutup dialog
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { postToEdit = null }) { Text("Cancel") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             Column {
-                // 1. TOP BAR UTAMA
                 TopAppBar(
                     title = {
-                        // Judul yang bisa diklik untuk ganti kampus (Dropdown)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clickable { expanded = true }
-                                .padding(8.dp)
+                            modifier = Modifier.clickable { expanded = true }.padding(8.dp)
                         ) {
                             Text(text = currentUni, style = MaterialTheme.typography.titleLarge)
                             Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch Campus")
 
-                            // Menu Dropdown Kampus
                             DropdownMenu(
                                 expanded = expanded,
                                 onDismissRequest = { expanded = false }
@@ -76,11 +105,12 @@ fun HomeScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ),
                     actions = {
-                        // Tombol Refresh Manual
+                        IconButton(onClick = onProfileClick) {
+                            Icon(Icons.Default.Person, contentDescription = "Profile")
+                        }
                         IconButton(onClick = { homeViewModel.fetchPosts() }) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                         }
-                        // Tombol Logout
                         IconButton(onClick = {
                             FirebaseAuth.getInstance().signOut()
                             onLogout()
@@ -90,7 +120,6 @@ fun HomeScreen(
                     }
                 )
 
-                // 2. BARIS FILTER (Populer / Terbaru)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -98,7 +127,6 @@ fun HomeScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Filter Popular
                     FilterChip(
                         selected = currentSort == SortType.POPULAR,
                         onClick = { homeViewModel.switchSortType(SortType.POPULAR) },
@@ -108,7 +136,6 @@ fun HomeScreen(
                         } else null
                     )
 
-                    // Filter Newest
                     FilterChip(
                         selected = currentSort == SortType.NEWEST,
                         onClick = { homeViewModel.switchSortType(SortType.NEWEST) },
@@ -119,7 +146,6 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
-            // Tombol (+) hanya muncul jika user punya hak akses di kampus ini
             if (canPost) {
                 FloatingActionButton(onClick = onFabClick) {
                     Icon(Icons.Default.Add, contentDescription = "New Post")
@@ -133,7 +159,6 @@ fun HomeScreen(
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
                 if (posts.isEmpty()) {
-                    // Tampilan jika tidak ada postingan
                     Column(
                         modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -142,17 +167,28 @@ fun HomeScreen(
                         if (canPost) Text("Be the first to post!")
                     }
                 } else {
-                    // DAFTAR POSTINGAN
                     LazyColumn {
                         items(posts) { post ->
-                            // Bungkus PostCard agar bisa diklik untuk melihat detail
                             Box(modifier = Modifier.clickable {
-                                onPostClick(post.postId) // Kirim ID ke MainActivity
+                                onPostClick(post.postId)
                             }) {
                                 PostCard(
                                     post = post,
                                     onLikeClick = { selectedPost ->
                                         homeViewModel.toggleLike(selectedPost)
+                                    },
+                                    onCommentClick = { selectedPost ->
+                                        onPostClick(selectedPost.postId)
+                                    },
+
+                                    // 👇 SAMBUNGKAN FITUR EDIT & DELETE DI SINI
+                                    onDeleteClick = { selectedPost ->
+                                        homeViewModel.deletePost(selectedPost)
+                                    },
+                                    onEditClick = { selectedPost ->
+                                        // Siapkan data untuk diedit
+                                        editTextField = selectedPost.text
+                                        postToEdit = selectedPost // Munculkan Dialog
                                     }
                                 )
                             }

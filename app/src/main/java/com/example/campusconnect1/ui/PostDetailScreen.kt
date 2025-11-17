@@ -12,21 +12,26 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import java.text.SimpleDateFormat
-import java.util.Locale
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.campusconnect1.Comment
+import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostDetailScreen(
-    postId: String,            // ID passed from Home
-    onBack: () -> Unit,        // Callback to go back
+    postId: String,
+    onBack: () -> Unit,
     viewModel: PostDetailViewModel = viewModel()
 ) {
-    // Load data when screen launches
+    // Load data saat layar dibuka
     LaunchedEffect(postId) {
         viewModel.loadPost(postId)
     }
@@ -34,6 +39,7 @@ fun PostDetailScreen(
     val post by viewModel.selectedPost.collectAsState()
     val comments by viewModel.comments.collectAsState()
     var commentText by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -47,7 +53,7 @@ fun PostDetailScreen(
             )
         },
         bottomBar = {
-            // --- COMMENT INPUT AREA ---
+            // --- AREA INPUT KOMENTAR ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -65,7 +71,7 @@ fun PostDetailScreen(
                 IconButton(
                     onClick = {
                         viewModel.sendComment(postId, commentText)
-                        commentText = "" // Clear input
+                        commentText = "" // Kosongkan input
                     },
                     enabled = commentText.isNotBlank()
                 ) {
@@ -79,20 +85,62 @@ fun PostDetailScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            // 1. SHOW THE POST ITSELF (Reusing PostCard logic manually or simplified)
+            // 1. TAMPILKAN POSTINGAN UTAMA
             item {
-                post?.let {
+                post?.let { postData ->
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(it.authorName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(it.text, style = MaterialTheme.typography.bodyLarge)
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
-                        Text("${comments.size} Comments", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
+                        // Header (Nama Author)
+                        Text(
+                            text = postData.authorName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = postData.universityId,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Isi Teks
+                        Text(
+                            text = postData.text,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+
+                        // 👇👇 PENAMBAHAN LOGIKA GAMBAR DISINI 👇👇
+                        if (postData.imageUrl != null && postData.imageUrl.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(postData.imageUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Post Image Detail",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(300.dp) // Lebih tinggi daripada di Home
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.LightGray),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        // 👆👆 SELESAI PENAMBAHAN 👆👆
+
+                        Divider(modifier = Modifier.padding(vertical = 16.dp))
+
+                        Text(
+                            text = "${comments.size} Comments",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.Gray
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
 
-            // 2. LIST OF COMMENTS
+            // 2. DAFTAR KOMENTAR
             items(comments) { comment ->
                 CommentItem(comment)
             }
@@ -101,7 +149,7 @@ fun PostDetailScreen(
 }
 
 @Composable
-fun CommentItem(comment: com.example.campusconnect1.Comment) {
+fun CommentItem(comment: Comment) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -111,10 +159,6 @@ fun CommentItem(comment: com.example.campusconnect1.Comment) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(comment.authorName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.weight(1f))
-                // Format Date (Optional)
-                val dateStr = comment.timestamp?.toString() ?: ""
-                Text(dateStr, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(comment.text, style = MaterialTheme.typography.bodyMedium)
