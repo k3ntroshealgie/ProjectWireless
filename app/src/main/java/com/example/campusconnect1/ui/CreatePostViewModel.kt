@@ -22,7 +22,7 @@ enum class PostState { IDLE, LOADING, SUCCESS, ERROR }
 
 class CreatePostViewModel : ViewModel() {
 
-    // ⚠️ JANGAN LUPA ISI API KEY IMGBB ANDA DI SINI
+    // ⚠️ KEEP YOUR API KEY HERE
     private val IMGBB_API_KEY = "2c12842237f145326b7757264381a895"
 
     private val firestore = FirebaseFirestore.getInstance()
@@ -31,29 +31,31 @@ class CreatePostViewModel : ViewModel() {
     private val _postState = MutableStateFlow(PostState.IDLE)
     val postState: StateFlow<PostState> = _postState
 
-    // 👇 UPDATE: Tambahkan parameter groupId (Default null)
+    // 👇 UPDATE: Add groupId parameter (Default null)
     fun createPost(context: Context, text: String, imageUri: Uri?, groupId: String? = null) {
         viewModelScope.launch {
             _postState.value = PostState.LOADING
 
             try {
-                val user = auth.currentUser ?: throw IllegalStateException("User belum login!")
+                // Translated Error Message
+                val user = auth.currentUser ?: throw IllegalStateException("User not logged in!")
 
-                // Ambil Data User
+                // Get User Data
                 val userDoc = firestore.collection("users").document(user.uid).get().await()
                 val authorName = userDoc.getString("fullName") ?: "Anonymous"
                 val universityId = userDoc.getString("universityId") ?: "Unknown"
                 val authorAvatarUrl = userDoc.getString("profilePictureUrl") ?: ""
 
-                // Cek status verified
+                // Check verified status
                 val isAccountVerified = userDoc.getBoolean("verified") ?: false
                 if (!isAccountVerified) {
-                    throw IllegalStateException("Maaf, akun Anda belum terverifikasi.")
+                    // Translated Error Message
+                    throw IllegalStateException("Sorry, your account is not verified.")
                 }
 
                 var imageUrl: String? = null
 
-                // Upload Gambar (Jika ada)
+                // Upload Image (If exists)
                 if (imageUri != null) {
                     val inputStream = context.contentResolver.openInputStream(imageUri)
                     val bytes = inputStream?.readBytes()
@@ -68,12 +70,13 @@ class CreatePostViewModel : ViewModel() {
                         if (response.isSuccessful && response.body()?.success == true) {
                             imageUrl = response.body()?.data?.url
                         } else {
-                            throw Exception("Gagal upload gambar ke imgbb")
+                            // Translated Error Message
+                            throw Exception("Failed to upload image to ImgBB")
                         }
                     }
                 }
 
-                // Simpan Postingan
+                // Save Post
                 val newPost = Post(
                     authorId = user.uid,
                     authorName = authorName,
@@ -86,11 +89,14 @@ class CreatePostViewModel : ViewModel() {
                     commentCount = 0,
                     likedBy = emptyList(),
 
-                    // 👇 ISI GROUP ID DI SINI (Bisa null jika postingan biasa)
+                    // 👇 FILL GROUP ID HERE (Can be null if regular post)
                     groupId = groupId
                 )
 
                 firestore.collection("posts").add(newPost).await()
+
+                // Translated Log Message
+                Log.d("CreatePost", "Post successfully saved to Firestore")
 
                 _postState.value = PostState.SUCCESS
 

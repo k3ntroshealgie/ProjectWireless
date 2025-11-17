@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.campusconnect1.auth.AuthResult
 import com.example.campusconnect1.auth.AuthState
 import com.example.campusconnect1.auth.AuthViewModel
+import com.example.campusconnect1.ui.theme.NeoPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,7 +31,6 @@ fun LoginScreen(
     val authState by authViewModel.authResult.collectAsState()
     val context = LocalContext.current
 
-    // Side Effect for Navigation
     LaunchedEffect(authState) {
         when (authState.state) {
             AuthState.SUCCESS -> {
@@ -53,16 +53,11 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "CampusConnect+",
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Text(text = "CampusConnect+", style = MaterialTheme.typography.headlineLarge, color = NeoPrimary)
         Text(text = "Login to your community", style = MaterialTheme.typography.bodyMedium)
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Input Email
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -73,7 +68,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Input Password
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
@@ -85,11 +79,11 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Login Button
         Button(
             onClick = { authViewModel.loginUser(email, password) },
             modifier = Modifier.fillMaxWidth().height(50.dp),
-            enabled = authState.state != AuthState.LOADING
+            enabled = authState.state != AuthState.LOADING,
+            colors = ButtonDefaults.buttonColors(containerColor = NeoPrimary)
         ) {
             if (authState.state == AuthState.LOADING) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
@@ -102,9 +96,10 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Link to Register
         TextButton(onClick = onNavigateToRegister) {
             Text("Don't have an account? Register here")
         }
+
+        // TOMBOL ADMIN SUDAH DIHAPUS DI SINI
     }
 }

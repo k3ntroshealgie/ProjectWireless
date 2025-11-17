@@ -1,86 +1,126 @@
 package com.example.campusconnect1.ui
 
 import android.util.Log
-import com.example.campusconnect1.AllowedNIM
+import com.example.campusconnect1.Group
+import com.example.campusconnect1.Post
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.util.Date
+import java.util.UUID
 
 class DatabaseSeeder {
 
     private val firestore = FirebaseFirestore.getInstance()
-    private val collection = firestore.collection("allowed_nims")
 
-    // 12 Kampus
-    private val universities = listOf(
-        "PU", "ITS", "UB", "IPB", "UNSRI",
-        "TELKOMU", "UGM", "UNAIR", "UNDIP", "UNPAD", "UI", "ITB"
+    // Daftar Kampus (Harus sama dengan yang ada di HomeViewModel)
+    private val universities = listOf("ITB", "UI", "UGM", "ITS", "IPB", "UNAIR", "UNDIP", "UNPAD", "TELKOMU", "PU", "UNSRI")
+
+    // --- DATA DUMMY GRUP (ENGLISH) ---
+    private val groupTemplates = listOf(
+        "Badminton Club" to "For all badminton enthusiasts! We play every Tuesday at the sport hall.",
+        "Coding Community" to "Discussing algorithms, web dev, and mobile apps. Let's code together!",
+        "Esports Team" to "Recruiting players for MLBB and Valorant tournaments. Rank up with us.",
+        "Secondhand Books" to "Buy and sell used textbooks cheaply. Save your money!",
+        "Music Society" to "Jamming sessions and band recruitment. All genres are welcome.",
+        "Photography Club" to "Capturing moments around campus. Photo hunting every weekend.",
+        "English Debate" to "Sharpen your critical thinking and speaking skills."
     )
 
-    // Generates majors "001" to "010"
-    private val majors = (1..10).map { String.format("%03d", it) }
+    // --- DATA DUMMY POST (ENGLISH) ---
+    private val postTemplates = listOf(
+        "Does anyone know when the library closes today? I need to study for midterms! 📚",
+        "Selling my old Calculus textbook. Good condition, 50% off! DM me if interested. 💸",
+        "Found a lost key chain near the cafeteria. It has a Marvel logo on it. Left it at security.",
+        "Looking for a gym buddy! Anyone want to join me at the campus gym at 5 PM?",
+        "The food at the new canteen stall is amazing! You guys have to try the Nasi Goreng there. 😋",
+        "Is there any coding hackathon coming up this month? Looking for a team!",
+        "Urgent! Does anyone have the lecture notes for Intro to Business Management week 4?",
+        "Sunset view from the main building today was breathtaking. 📸",
+        "Reminder: The scholarship application deadline is tomorrow! Don't forget to submit.",
+        "Who's excited for the campus music festival next week? 🎸"
+    )
 
-    // 👇 TARGET TOTAL 1.000 PER KAMPUS
-    // Karena ada 10 jurusan, maka per jurusan kita isi 100 orang.
-    // 100 mhs x 10 jurusan = 1.000 mhs/kampus.
-    // Total semua kampus = 12.000 dokumen (Aman untuk Free Tier)
-    private val studentCountPerMajor = 100
-
-    fun seedData(onUpdate: (String) -> Unit) {
+    // --- GENERATE GROUPS ---
+    fun seedGroups(onUpdate: (String) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 var batch = firestore.batch()
-                var operationCount = 0
-                var totalUploaded = 0
+                var count = 0
 
-                onUpdate("Memulai... Target total: 12.000 data.")
+                onUpdate("Generating groups...")
 
                 universities.forEach { uniId ->
-                    majors.forEach { majorCode ->
+                    // Ambil 3 grup acak untuk setiap kampus
+                    val selectedGroups = groupTemplates.shuffled().take(3)
 
-                        // Loop Mahasiswa (00001 s/d 00100)
-                        for (i in 1..studentCountPerMajor) {
-                            val sequence = String.format("%05d", i)
-                            val generatedNim = "${majorCode}2024${sequence}"
-
-                            val docRef = collection.document()
-                            val data = AllowedNIM(
-                                nim = generatedNim,
-                                universityId = uniId,
-                                role = "student"
-                            )
-
-                            batch.set(docRef, data)
-                            operationCount++
-
-                            // Kirim setiap 400 data
-                            if (operationCount >= 400) {
-                                batch.commit().await()
-                                totalUploaded += operationCount
-
-                                // Reset batch & counter
-                                batch = firestore.batch()
-                                operationCount = 0
-
-                                // Kabari UI
-                                onUpdate("Proses... Terupload: $totalUploaded / 12.000")
-                            }
-                        }
+                    selectedGroups.forEach { (name, desc) ->
+                        val docRef = firestore.collection("groups").document()
+                        val group = Group(
+                            groupId = docRef.id,
+                            name = "$name ($uniId)", // Contoh: Badminton Club (ITB)
+                            description = desc,
+                            universityId = uniId,
+                            creatorId = "admin_bot", // Fake ID
+                            members = emptyList(),
+                            memberCount = 0
+                        )
+                        batch.set(docRef, group)
+                        count++
                     }
                 }
-
-                // Kirim sisa data di akhir
-                if (operationCount > 0) {
-                    batch.commit().await()
-                    totalUploaded += operationCount
-                }
-
-                onUpdate("SELESAI! Total $totalUploaded NIM berhasil ditambahkan.")
-
+                batch.commit().await()
+                onUpdate("SUCCESS! Created $count groups.")
             } catch (e: Exception) {
-                Log.e("Seeder", "Gagal seed data", e)
+                Log.e("Seeder", "Error groups", e)
+                onUpdate("Error: ${e.message}")
+            }
+        }
+    }
+
+    // --- GENERATE POSTS ---
+    fun seedPosts(onUpdate: (String) -> Unit) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                var batch = firestore.batch()
+                var count = 0
+
+                onUpdate("Generating posts...")
+
+                universities.forEach { uniId ->
+                    // Ambil 5 postingan acak untuk setiap kampus
+                    val selectedPosts = postTemplates.shuffled().take(5)
+
+                    selectedPosts.forEach { text ->
+                        val docRef = firestore.collection("posts").document()
+
+                        // Fake Usernames
+                        val fakeUser = listOf("alex_student", "sarah_j", "mike_99", "campus_life", "john_doe").random()
+
+                        // Kita biarkan postId KOSONG di dalam objek,
+                        // karena kita pakai @DocumentId di DataModels.
+                        // Tapi kita set data ke docRef yang sudah punya ID.
+                        val post = Post(
+                            // postId = docRef.id, <--- JANGAN DIISI AGAR TIDAK CRASH
+                            authorId = "dummy_user_${UUID.randomUUID()}",
+                            authorName = fakeUser,
+                            universityId = uniId,
+                            text = text,
+                            imageUrl = null,
+                            timestamp = Date(),
+                            voteCount = (0..50).random(),
+                            commentCount = 0
+                        )
+                        batch.set(docRef, post)
+                        count++
+                    }
+                }
+                batch.commit().await()
+                onUpdate("SUCCESS! Created $count posts.")
+            } catch (e: Exception) {
+                Log.e("Seeder", "Error posts", e)
                 onUpdate("Error: ${e.message}")
             }
         }

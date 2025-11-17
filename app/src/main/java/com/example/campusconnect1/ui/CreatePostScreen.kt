@@ -21,7 +21,7 @@ import coil.compose.AsyncImage
 fun CreatePostScreen(
     onPostSuccess: () -> Unit,
     onBack: () -> Unit,
-    // 👇 UPDATE: Terima parameter groupId
+    // 👇 UPDATE: Receive groupId parameter
     groupId: String? = null,
     viewModel: CreatePostViewModel = viewModel()
 ) {
@@ -40,12 +40,14 @@ fun CreatePostScreen(
     LaunchedEffect(postState) {
         when(postState) {
             PostState.SUCCESS -> {
-                Toast.makeText(context, "Postingan berhasil dibuat!", Toast.LENGTH_SHORT).show()
+                // Translated to English
+                Toast.makeText(context, "Post created successfully!", Toast.LENGTH_SHORT).show()
                 viewModel.resetState()
                 onPostSuccess()
             }
             PostState.ERROR -> {
-                Toast.makeText(context, "Gagal membuat postingan.", Toast.LENGTH_SHORT).show()
+                // Translated to English
+                Toast.makeText(context, "Failed to create post.", Toast.LENGTH_SHORT).show()
                 viewModel.resetState()
             }
             else -> {}
@@ -58,7 +60,8 @@ fun CreatePostScreen(
                 title = { Text(if (groupId != null) "Post to Group" else "Create Post") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                        // Translated contentDescription
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -73,7 +76,8 @@ fun CreatePostScreen(
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                label = { Text("Apa yang Anda pikirkan?") },
+                // Translated label
+                label = { Text("What's on your mind?") },
                 modifier = Modifier.fillMaxWidth().height(150.dp),
                 maxLines = 5
             )
@@ -88,14 +92,16 @@ fun CreatePostScreen(
                     contentScale = ContentScale.Crop
                 )
                 TextButton(onClick = { imageUri = null }) {
-                    Text("Hapus Gambar")
+                    // Translated button text
+                    Text("Remove Image")
                 }
             } else {
                 Button(
                     onClick = { imagePickerLauncher.launch("image/*") },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                 ) {
-                    Text("Tambahkan Gambar")
+                    // Translated button text
+                    Text("Add Image")
                 }
             }
 
@@ -103,7 +109,7 @@ fun CreatePostScreen(
 
             Button(
                 onClick = {
-                    // 👇 UPDATE: Kirim groupId ke ViewModel
+                    // 👇 UPDATE: Send groupId to ViewModel
                     viewModel.createPost(context, text, imageUri, groupId)
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -112,9 +118,11 @@ fun CreatePostScreen(
                 if (postState == PostState.LOADING) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Mengupload...")
+                    // Translated loading text
+                    Text("Uploading...")
                 } else {
-                    Text("Posting Sekarang")
+                    // Translated button text
+                    Text("Post Now")
                 }
             }
         }
