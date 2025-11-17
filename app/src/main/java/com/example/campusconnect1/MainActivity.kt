@@ -1,4 +1,3 @@
-// MainActivity.kt
 package com.example.campusconnect1
 
 import android.os.Bundle
@@ -12,10 +11,11 @@ import androidx.compose.ui.Modifier
 import com.example.campusconnect1.ui.CreatePostScreen
 import com.example.campusconnect1.ui.HomeScreen
 import com.example.campusconnect1.ui.LoginScreen
+import com.example.campusconnect1.ui.PostDetailScreen
 import com.example.campusconnect1.ui.RegisterScreen
 import com.google.firebase.auth.FirebaseAuth
 
-enum class CurrentScreen { LOGIN, REGISTER, HOME, CREATE_POST }
+enum class CurrentScreen { LOGIN, REGISTER, HOME, CREATE_POST, POST_DETAIL }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,6 +28,9 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     var currentScreen by remember { mutableStateOf(startScreen) }
+
+                    // 2. Variabel untuk menyimpan ID postingan yang diklik
+                    var selectedPostId by remember { mutableStateOf("") }
 
                     when (currentScreen) {
                         CurrentScreen.LOGIN -> {
@@ -45,15 +48,26 @@ class MainActivity : ComponentActivity() {
                         CurrentScreen.HOME -> {
                             HomeScreen(
                                 onFabClick = { currentScreen = CurrentScreen.CREATE_POST },
-                                // 👇 TANGKAP SINYAL LOGOUT DI SINI
-                                onLogout = {
-                                    currentScreen = CurrentScreen.LOGIN
+                                onLogout = { currentScreen = CurrentScreen.LOGIN },
+
+                                // 👇 UPDATE DI SINI: Menerima klik postingan
+                                onPostClick = { postId ->
+                                    selectedPostId = postId // Simpan ID
+                                    currentScreen = CurrentScreen.POST_DETAIL // Pindah Layar
                                 }
                             )
                         }
                         CurrentScreen.CREATE_POST -> {
                             CreatePostScreen(
                                 onPostSuccess = { currentScreen = CurrentScreen.HOME },
+                                onBack = { currentScreen = CurrentScreen.HOME }
+                            )
+                        }
+
+                        // 3. LAYAR DETAIL BARU
+                        CurrentScreen.POST_DETAIL -> {
+                            PostDetailScreen(
+                                postId = selectedPostId,
                                 onBack = { currentScreen = CurrentScreen.HOME }
                             )
                         }
