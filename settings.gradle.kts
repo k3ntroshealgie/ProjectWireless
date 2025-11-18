@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ProjectWireless"
+rootProject.name = "CampusConnect1"
 include(":app")
  
