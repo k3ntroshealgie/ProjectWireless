@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import com.example.campusconnect1.Comment
 import com.example.campusconnect1.Post
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,60 +17,65 @@ class PostDetailViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    // Holds the list of comments for the specific post
     private val _comments = MutableStateFlow<List<Comment>>(emptyList())
     val comments: StateFlow<List<Comment>> = _comments
 
-    // Holds the Post data itself (to display at the top)
     private val _selectedPost = MutableStateFlow<Post?>(null)
     val selectedPost: StateFlow<Post?> = _selectedPost
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    /**
-     * Load post details and start listening to its comments.
-     * Called when the screen opens.
-     */
     fun loadPost(postId: String) {
         _isLoading.value = true
 
-        // 1. Get the Post Document (Real-time updates for like counts etc)
+        // 1. DENGARKAN POSTINGAN UTAMA (Agar Like & Comment Count update realtime di layar detail)
         firestore.collection("posts").document(postId)
             .addSnapshotListener { snapshot, _ ->
                 if (snapshot != null && snapshot.exists()) {
-                    _selectedPost.value = snapshot.toObject(Post::class.java)
+                    val post = snapshot.toObject(Post::class.java)
+                    _selectedPost.value = post
                 }
             }
 
-        // 2. Listen to Comments Sub-collection
-        // Structure: collection("posts") -> doc(postId) -> collection("comments")
+        // 2. DENGARKAN LIST KOMENTAR
         firestore.collection("posts").document(postId).collection("comments")
-            .orderBy("timestamp", Query.Direction.ASCENDING) // Oldest comments at top
+            .orderBy("timestamp", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e("PostDetail", "Error fetching comments", error)
-                    _isLoading.value = false
-                    return@addSnapshotListener
-                }
-
+                if (error != null) return@addSnapshotListener
                 if (snapshot != null) {
-                    val commentList = snapshot.toObjects(Comment::class.java)
-                    _comments.value = commentList
+                    _comments.value = snapshot.toObjects(Comment::class.java)
                 }
                 _isLoading.value = false
             }
     }
 
-    /**
-     * Send a new comment.
-     */
+    // Fungsi Like dari halaman Detail
+    fun toggleLike(post: Post) {
+        val userId = auth.currentUser?.uid ?: return
+        val postRef = firestore.collection("posts").document(post.postId)
+
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(postRef)
+            val currentLikes = snapshot.getLong("voteCount") ?: 0
+            @Suppress("UNCHECKED_CAST")
+            val likedBy = snapshot.get("likedBy") as? List<String> ?: emptyList()
+
+            if (likedBy.contains(userId)) {
+                transaction.update(postRef, "voteCount", currentLikes - 1)
+                transaction.update(postRef, "likedBy", likedBy - userId)
+            } else {
+                transaction.update(postRef, "voteCount", currentLikes + 1)
+                transaction.update(postRef, "likedBy", likedBy + userId)
+            }
+        }
+    }
+
     fun sendComment(postId: String, text: String) {
         if (text.isBlank()) return
 
         val userId = auth.currentUser?.uid ?: return
 
-        // Get user info first (to display name in comment)
         firestore.collection("users").document(userId).get()
             .addOnSuccessListener { document ->
                 val authorName = document.getString("fullName") ?: "Anonymous"
@@ -79,18 +85,17 @@ class PostDetailViewModel : ViewModel() {
                     authorId = userId,
                     authorName = authorName,
                     text = text,
-                    timestamp = Date() // Client time
+                    timestamp = Date()
                 )
 
-                // Add to 'comments' sub-collection
+                // 1. Simpan Komentar ke Sub-collection
                 firestore.collection("posts").document(postId)
                     .collection("comments")
                     .add(newComment)
 
-                // Update commentCount in the main Post document
-                // Note: Ideally use a Transaction or Cloud Function for accuracy
+                // 👇 2. PENTING: Update Angka Komentar di Postingan Utama (+1)
                 firestore.collection("posts").document(postId)
-                    .update("commentCount", com.google.firebase.firestore.FieldValue.increment(1))
+                    .update("commentCount", FieldValue.increment(1))
             }
     }
 }

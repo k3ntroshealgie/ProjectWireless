@@ -10,6 +10,7 @@ import com.example.campusconnect1.RetrofitClient
 import com.example.campusconnect1.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldPath
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,8 +23,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 class ProfileViewModel : ViewModel() {
 
-    // ⚠️ PASTIKAN API KEY INI TERISI
-    private val IMGBB_API_KEY = "MASUKKAN_API_KEY_DISINI"
+    private val IMGBB_API_KEY = "2c12842237f145326b7757264381a895"
 
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
@@ -34,7 +34,6 @@ class ProfileViewModel : ViewModel() {
     private val _myPosts = MutableStateFlow<List<Post>>(emptyList())
     val myPosts: StateFlow<List<Post>> = _myPosts
 
-    // 👇 STATE BARU: Postingan yang disimpan
     private val _savedPosts = MutableStateFlow<List<Post>>(emptyList())
     val savedPosts: StateFlow<List<Post>> = _savedPosts
 
@@ -46,22 +45,19 @@ class ProfileViewModel : ViewModel() {
         loadMyPosts()
     }
 
-    // Gabungkan load profil dan load saved posts agar sinkron
     fun loadUserProfileAndSavedPosts() {
         val userId = auth.currentUser?.uid ?: return
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // 1. Ambil data User dulu (untuk dapat list ID bookmark)
-                // Kita pakai Snapshot Listener agar kalau bookmark nambah, otomatis update
                 firestore.collection("users").document(userId)
                     .addSnapshotListener { snapshot, error ->
                         if (snapshot != null && snapshot.exists()) {
                             val user = snapshot.toObject(User::class.java)
                             _userProfile.value = user
 
-                            // 2. Jika ada bookmark, ambil data postingannya
-                            val savedIds = user?.savedPostIds ?: emptyList()
+                            val savedIds = user?.savedPostIds?.filter { it.isNotBlank() } ?: emptyList()
+
                             if (savedIds.isNotEmpty()) {
                                 fetchSavedPosts(savedIds)
                             } else {
@@ -77,24 +73,21 @@ class ProfileViewModel : ViewModel() {
     }
 
     private fun fetchSavedPosts(ids: List<String>) {
-        // Firestore limit: whereIn maksimal 10 ID. Kita ambil 10 terakhir.
         val limitIds = ids.takeLast(10)
-
+        // Menggunakan addSnapshotListener agar status LIKE di tab Saved juga realtime
         firestore.collection("posts")
             .whereIn(FieldPath.documentId(), limitIds)
-            .get()
-            .addOnSuccessListener { documents ->
-                val posts = documents.toObjects(Post::class.java)
-                _savedPosts.value = posts
-            }
-            .addOnFailureListener {
-                Log.e("ProfileViewModel", "Gagal ambil saved posts", it)
+            .addSnapshotListener { snapshot, e ->
+                if (snapshot != null) {
+                    val posts = snapshot.toObjects(Post::class.java)
+                    // Urutkan manual karena whereIn tidak menjamin urutan
+                    _savedPosts.value = posts.sortedByDescending { it.timestamp }
+                }
             }
     }
 
     fun loadMyPosts() {
         val userId = auth.currentUser?.uid ?: return
-
         firestore.collection("posts")
             .whereEqualTo("authorId", userId)
             .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -106,26 +99,55 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    // Fungsi Update Data Text Profil
-    fun updateProfileData(newBio: String, newMajor: String, newInstagram: String, newLinkedIn: String) {
+    // 👇 FUNGSI LIKE (Sama seperti Home)
+    fun toggleLike(post: Post) {
         val userId = auth.currentUser?.uid ?: return
-        viewModelScope.launch {
-            try {
-                val updates = mapOf(
-                    "bio" to newBio,
-                    "major" to newMajor,
-                    "instagram" to newInstagram,
-                    "linkedin" to newLinkedIn
-                )
-                firestore.collection("users").document(userId).update(updates).await()
-                // Tidak perlu panggil loadUserProfile lagi karena sudah pakai listener
-            } catch (e: Exception) {
-                Log.e("ProfileViewModel", "Gagal update profil", e)
+        val postRef = firestore.collection("posts").document(post.postId)
+
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(postRef)
+            val currentLikes = snapshot.getLong("voteCount") ?: 0
+            @Suppress("UNCHECKED_CAST")
+            val likedBy = snapshot.get("likedBy") as? List<String> ?: emptyList()
+
+            if (likedBy.contains(userId)) {
+                transaction.update(postRef, "voteCount", currentLikes - 1)
+                transaction.update(postRef, "likedBy", likedBy - userId)
+            } else {
+                transaction.update(postRef, "voteCount", currentLikes + 1)
+                transaction.update(postRef, "likedBy", likedBy + userId)
             }
         }
     }
 
-    // Fungsi Upload Gambar
+    // 👇 FUNGSI BOOKMARK (Sama seperti Home)
+    fun toggleBookmark(post: Post) {
+        val userId = auth.currentUser?.uid ?: return
+        val userRef = firestore.collection("users").document(userId)
+
+        val currentSaved = _userProfile.value?.savedPostIds ?: emptyList()
+
+        if (currentSaved.contains(post.postId)) {
+            userRef.update("savedPostIds", FieldValue.arrayRemove(post.postId))
+        } else {
+            userRef.update("savedPostIds", FieldValue.arrayUnion(post.postId))
+        }
+    }
+
+    // ... (Fungsi updateProfileData & updateProfilePicture SAMA seperti sebelumnya, tidak berubah) ...
+    // Agar kode tidak terlalu panjang di sini, pastikan Anda tetap menyertakan
+    // updateProfileData dan updateProfilePicture yang sudah ada di file Anda sebelumnya.
+
+    fun updateProfileData(newBio: String, newMajor: String, newInstagram: String, newLinkedIn: String) {
+        val userId = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            try {
+                val updates = mapOf("bio" to newBio, "major" to newMajor, "instagram" to newInstagram, "linkedin" to newLinkedIn)
+                firestore.collection("users").document(userId).update(updates).await()
+            } catch (e: Exception) { Log.e("ProfileViewModel", "Gagal update profil", e) }
+        }
+    }
+
     fun updateProfilePicture(context: Context, imageUri: Uri) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -133,25 +155,17 @@ class ProfileViewModel : ViewModel() {
                 val inputStream = context.contentResolver.openInputStream(imageUri)
                 val bytes = inputStream?.readBytes()
                 inputStream?.close()
-
                 if (bytes != null) {
                     val reqFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
                     val body = MultipartBody.Part.createFormData("image", "avatar.jpg", reqFile)
                     val response = RetrofitClient.instance.uploadImage(IMGBB_API_KEY, body)
-
                     if (response.isSuccessful && response.body()?.success == true) {
                         val newUrl = response.body()?.data?.url ?: return@launch
                         val userId = auth.currentUser?.uid ?: return@launch
-
-                        firestore.collection("users").document(userId)
-                            .update("profilePictureUrl", newUrl)
-                            .await()
-                        // Listener otomatis update UI
+                        firestore.collection("users").document(userId).update("profilePictureUrl", newUrl).await()
                     }
                 }
-            } catch (e: Exception) {
-                Log.e("ProfileViewModel", "Failed to update avatar", e)
-            }
+            } catch (e: Exception) { Log.e("ProfileViewModel", "Failed to update avatar", e) }
             _isLoading.value = false
         }
     }

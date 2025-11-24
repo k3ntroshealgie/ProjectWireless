@@ -32,24 +32,22 @@ import com.example.campusconnect1.ui.theme.NeoPrimary
 @Composable
 fun ProfileScreen(
     onBack: () -> Unit,
-    isDarkTheme: Boolean = false,
-    onThemeChange: (Boolean) -> Unit = {},
+    // 👇 PARAMETER BARU: Untuk buka detail post
+    onPostClick: (String) -> Unit = {},
     viewModel: ProfileViewModel = viewModel()
 ) {
     val user by viewModel.userProfile.collectAsState()
     val myPosts by viewModel.myPosts.collectAsState()
-
-    // 👇 Ambil data Saved Posts
     val savedPosts by viewModel.savedPosts.collectAsState()
-
     val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
 
-    // State untuk Tab (0 = My Posts, 1 = Saved)
+    // State Tab
     var selectedTab by remember { mutableStateOf(0) }
     val tabTitles = listOf("My Posts", "Saved")
 
     var showEditDialog by remember { mutableStateOf(false) }
+
     var editBio by remember { mutableStateOf("") }
     var editMajor by remember { mutableStateOf("") }
     var editInsta by remember { mutableStateOf("") }
@@ -77,7 +75,9 @@ fun ProfileScreen(
                     showEditDialog = false
                 }) { Text("Save") }
             },
-            dismissButton = { TextButton(onClick = { showEditDialog = false }) { Text("Cancel") } }
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("Cancel") }
+            }
         )
     }
 
@@ -85,7 +85,9 @@ fun ProfileScreen(
         topBar = {
             TopAppBar(
                 title = { Text("My Profile") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") }
+                },
                 actions = {
                     IconButton(onClick = {
                         editBio = user?.bio ?: ""
@@ -93,30 +95,53 @@ fun ProfileScreen(
                         editInsta = user?.instagram ?: ""
                         editLinked = user?.linkedin ?: ""
                         showEditDialog = true
-                    }) { Icon(Icons.Default.Edit, "Edit Profile") }
+                    }) {
+                        Icon(Icons.Default.Edit, "Edit Profile")
+                    }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         if (isLoading && user == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
         } else {
             LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize(),
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // --- HEADER ---
+                // --- HEADER PROFILE ---
                 item {
                     Column(
-                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(24.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        Box(modifier = Modifier.size(120.dp).clickable { imagePicker.launch("image/*") }) {
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clickable { imagePicker.launch("image/*") }
+                        ) {
                             if (user?.profilePictureUrl.isNullOrEmpty()) {
-                                Box(modifier = Modifier.fillMaxSize().clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.secondaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Text(text = user?.fullName?.take(1)?.uppercase() ?: "?", style = MaterialTheme.typography.displayMedium)
                                 }
                             } else {
@@ -124,30 +149,26 @@ fun ProfileScreen(
                             }
                             Icon(Icons.Default.Edit, null, modifier = Modifier.align(Alignment.BottomEnd).background(NeoPrimary, CircleShape).padding(8.dp), tint = Color.White)
                         }
+
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(text = user?.fullName ?: "Loading...", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
-                        if (!user?.major.isNullOrEmpty()) Text(text = user!!.major, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
+                        if (!user?.major.isNullOrEmpty()) Text(text = user!!.major, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
                         Text(text = "${user?.universityId} • ${user?.nim}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                         if (!user?.bio.isNullOrEmpty()) { Spacer(modifier = Modifier.height(4.dp)); Text(text = user!!.bio, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface) }
 
                         if (!user?.instagram.isNullOrEmpty() || !user?.linkedin.isNullOrEmpty()) {
                             Spacer(modifier = Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (!user?.instagram.isNullOrEmpty()) AssistChip(onClick = {}, label = { Text("IG") })
+                                if (!user?.instagram.isNullOrEmpty()) AssistChip(onClick = {}, label = { Text("IG: ${user?.instagram}") })
                                 if (!user?.linkedin.isNullOrEmpty()) AssistChip(onClick = {}, label = { Text("LinkedIn") })
                             }
                         }
                     }
-
-                    // Dark Mode Toggle
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Dark Mode 🌙", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-                        Switch(checked = isDarkTheme, onCheckedChange = { onThemeChange(it) })
-                    }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // --- TAB SECTION ---
+                // --- TAB ROW ---
                 item {
                     TabRow(
                         selectedTabIndex = selectedTab,
@@ -155,41 +176,56 @@ fun ProfileScreen(
                         contentColor = MaterialTheme.colorScheme.primary
                     ) {
                         tabTitles.forEachIndexed { index, title ->
-                            Tab(
-                                selected = selectedTab == index,
-                                onClick = { selectedTab = index },
-                                text = { Text(title) }
-                            )
+                            Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) })
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // --- CONTENT LIST ---
+                // --- CONTENT ---
                 if (selectedTab == 0) {
                     // MY POSTS
                     if (myPosts.isEmpty()) {
                         item { Text("You haven't posted anything yet.", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     } else {
                         items(myPosts) { post ->
-                            PostCard(post = post, onLikeClick = {}, onCommentClick = {})
+                            // Cek Bookmark
+                            val isBookmarked = user?.savedPostIds?.contains(post.postId) == true
+
+                            Box(modifier = Modifier.clickable { onPostClick(post.postId) }) {
+                                PostCard(
+                                    post = post,
+                                    onLikeClick = { viewModel.toggleLike(it) },
+                                    onCommentClick = { onPostClick(it.postId) },
+                                    // 👇 Hubungkan ke ViewModel Profile
+                                    isBookmarked = isBookmarked,
+                                    onBookmarkClick = { viewModel.toggleBookmark(it) }
+                                )
+                            }
                         }
                     }
                 } else {
                     // SAVED POSTS
                     if (savedPosts.isEmpty()) {
                         item {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text("No saved posts yet.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Bookmark posts to see them here.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     } else {
                         items(savedPosts) { post ->
-                            PostCard(post = post, onLikeClick = {}, onCommentClick = {})
+                            // Di tab Saved, pasti isBookmarked = true
+                            Box(modifier = Modifier.clickable { onPostClick(post.postId) }) {
+                                PostCard(
+                                    post = post,
+                                    onLikeClick = { viewModel.toggleLike(it) },
+                                    onCommentClick = { onPostClick(it.postId) },
+
+                                    // 👇 FORCE TRUE (Biar Biru) + Toggle Logic
+                                    isBookmarked = true,
+                                    onBookmarkClick = { viewModel.toggleBookmark(it) }
+                                )
+                            }
                         }
                     }
                 }

@@ -4,11 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-// 👇👇👇 INI DIA BIANG KEROKNYA YANG HILANG TADI 👇👇👇
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-// 👆👆👆 PASTIKAN ADA 👆👆👆
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -41,14 +39,14 @@ fun HomeScreen(
     val canPost by homeViewModel.canPost.collectAsState()
     val currentSort by homeViewModel.currentSortType.collectAsState()
     val universities = homeViewModel.availableUniversities
+    val currentUser by homeViewModel.currentUserData.collectAsState()
 
     val selectedCategory by homeViewModel.selectedCategoryFilter.collectAsState()
     val categories = listOf("All", "General", "Academic", "Event", "Lost & Found", "Confess", "Market")
 
-    val currentUser by homeViewModel.currentUserData.collectAsState()
-
     var expanded by remember { mutableStateOf(false) }
     var isSearching by remember { mutableStateOf(false) }
+
     var postToEdit by remember { mutableStateOf<Post?>(null) }
     var editTextField by remember { mutableStateOf("") }
 
@@ -175,7 +173,6 @@ fun HomeScreen(
                             )
                         }
 
-                        // 👇 LazyRow sudah aman sekarang karena sudah di-import
                         LazyRow(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -220,6 +217,7 @@ fun HomeScreen(
                         if (canPost) Text("Be the first to post!", color = NeoPrimary, fontWeight = FontWeight.Bold)
                     }
                 } else {
+                    // 👇 BAGIAN TERPENTING
                     LazyColumn(
                         contentPadding = PaddingValues(bottom = 100.dp),
                         modifier = Modifier.fillMaxSize()
@@ -230,7 +228,10 @@ fun HomeScreen(
                             Box(modifier = Modifier.clickable { onPostClick(post.postId) }) {
                                 PostCard(
                                     post = post,
-                                    onLikeClick = { homeViewModel.toggleLike(it) },
+                                    // 👇 KABEL UTAMA LIKE
+                                    onLikeClick = { selectedPost ->
+                                        homeViewModel.toggleLike(selectedPost)
+                                    },
                                     onCommentClick = { onPostClick(it.postId) },
                                     onDeleteClick = { homeViewModel.deletePost(it) },
                                     onEditClick = { editTextField = it.text; postToEdit = it },

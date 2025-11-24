@@ -3,7 +3,6 @@ package com.example.campusconnect1
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.isSystemInDarkTheme // 👈 Import ini penting
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -39,13 +38,8 @@ class MainActivity : ComponentActivity() {
         val startScreen = if (auth.currentUser != null) CurrentScreen.HOME else CurrentScreen.LOGIN
 
         setContent {
-            // 👇 1. STATE TEMA (Agar switch di profil berfungsi)
-            val systemDark = isSystemInDarkTheme()
-            var isDarkTheme by remember { mutableStateOf(systemDark) }
-
-            // 👇 2. Masukkan state ke Theme
-            CampusConnect1Theme(darkTheme = isDarkTheme) {
-
+            // 👇 PANGGIL TEMA TANPA PARAMETER (Otomatis Light)
+            CampusConnect1Theme {
                 var currentScreen by remember { mutableStateOf(startScreen) }
                 var selectedPostId by remember { mutableStateOf("") }
                 var selectedGroupId by remember { mutableStateOf<String?>(null) }
@@ -123,8 +117,6 @@ class MainActivity : ComponentActivity() {
                                         currentScreen = CurrentScreen.POST_DETAIL
                                     },
                                     onProfileClick = { currentScreen = CurrentScreen.PROFILE },
-
-                                    // ✅ SUDAH BENAR: onGroupClick dihapus, diganti onUniversityChange
                                     onUniversityChange = { uni ->
                                         targetGroupUni = uni
                                     }
@@ -161,12 +153,16 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            // 👇 3. UPDATE PROFILE: Sambungkan logic Dark Mode
+                            // 👇 UPDATE PROFILE: Hapus parameter theme
                             CurrentScreen.PROFILE -> {
                                 ProfileScreen(
                                     onBack = { currentScreen = CurrentScreen.HOME },
-                                    isDarkTheme = isDarkTheme,
-                                    onThemeChange = { isDarkTheme = it }
+
+                                    // 👇 TAMBAHAN PENTING: Agar bisa klik detail dari profil
+                                    onPostClick = { postId ->
+                                        selectedPostId = postId
+                                        currentScreen = CurrentScreen.POST_DETAIL
+                                    }
                                 )
                             }
 
