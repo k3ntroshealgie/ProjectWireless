@@ -53,11 +53,20 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "CampusConnect+", style = MaterialTheme.typography.headlineLarge, color = NeoPrimary)
-        Text(text = "Login to your community", style = MaterialTheme.typography.bodyMedium)
+        // Judul Aplikasi
+        Text(
+            text = "CampusConnect+",
+            style = MaterialTheme.typography.headlineLarge,
+            color = NeoPrimary
+        )
+        Text(
+            text = "Login to your community",
+            style = MaterialTheme.typography.bodyMedium
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Input Email
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -68,6 +77,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Input Password
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
@@ -79,6 +89,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Tombol Login
         Button(
             onClick = { authViewModel.loginUser(email, password) },
             modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -86,7 +97,10 @@ fun LoginScreen(
             colors = ButtonDefaults.buttonColors(containerColor = NeoPrimary)
         ) {
             if (authState.state == AuthState.LOADING) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
                 Spacer(Modifier.width(8.dp))
                 Text("Logging in...")
             } else {
@@ -96,10 +110,10 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Link ke Register
         TextButton(onClick = onNavigateToRegister) {
             Text("Don't have an account? Register here")
         }
 
-        // TOMBOL ADMIN SUDAH DIHAPUS DI SINI
     }
 }

@@ -87,6 +87,9 @@ dependencies {
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)
 
+    // Tambahkan ini untuk akses semua ikon (Bookmark, dll)
+    implementation("androidx.compose.material:material-icons-extended")
+
     // Coil (Untuk memuat gambar dari URL)
     implementation(libs.coil.compose)
 

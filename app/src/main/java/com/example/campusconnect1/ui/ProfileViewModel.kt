@@ -9,6 +9,7 @@ import com.example.campusconnect1.Post
 import com.example.campusconnect1.RetrofitClient
 import com.example.campusconnect1.User
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,42 +22,74 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 class ProfileViewModel : ViewModel() {
 
-    // ⚠️ WAJIB DIISI: API KEY IMGBB ANDA
-    private val IMGBB_API_KEY = "2c12842237f145326b7757264381a895"
+    // ⚠️ PASTIKAN API KEY INI TERISI
+    private val IMGBB_API_KEY = "MASUKKAN_API_KEY_DISINI"
 
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    // State Data User
     private val _userProfile = MutableStateFlow<User?>(null)
     val userProfile: StateFlow<User?> = _userProfile
 
-    // State List Postingan User
     private val _myPosts = MutableStateFlow<List<Post>>(emptyList())
     val myPosts: StateFlow<List<Post>> = _myPosts
 
-    // State Loading
+    // 👇 STATE BARU: Postingan yang disimpan
+    private val _savedPosts = MutableStateFlow<List<Post>>(emptyList())
+    val savedPosts: StateFlow<List<Post>> = _savedPosts
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
     init {
-        loadUserProfile()
+        loadUserProfileAndSavedPosts()
         loadMyPosts()
     }
 
-    fun loadUserProfile() {
+    // Gabungkan load profil dan load saved posts agar sinkron
+    fun loadUserProfileAndSavedPosts() {
         val userId = auth.currentUser?.uid ?: return
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val snapshot = firestore.collection("users").document(userId).get().await()
-                // Ambil 1 dokumen user
-                _userProfile.value = snapshot.toObject(User::class.java)
+                // 1. Ambil data User dulu (untuk dapat list ID bookmark)
+                // Kita pakai Snapshot Listener agar kalau bookmark nambah, otomatis update
+                firestore.collection("users").document(userId)
+                    .addSnapshotListener { snapshot, error ->
+                        if (snapshot != null && snapshot.exists()) {
+                            val user = snapshot.toObject(User::class.java)
+                            _userProfile.value = user
+
+                            // 2. Jika ada bookmark, ambil data postingannya
+                            val savedIds = user?.savedPostIds ?: emptyList()
+                            if (savedIds.isNotEmpty()) {
+                                fetchSavedPosts(savedIds)
+                            } else {
+                                _savedPosts.value = emptyList()
+                            }
+                        }
+                    }
             } catch (e: Exception) {
                 Log.e("ProfileViewModel", "Error loading profile", e)
             }
             _isLoading.value = false
         }
+    }
+
+    private fun fetchSavedPosts(ids: List<String>) {
+        // Firestore limit: whereIn maksimal 10 ID. Kita ambil 10 terakhir.
+        val limitIds = ids.takeLast(10)
+
+        firestore.collection("posts")
+            .whereIn(FieldPath.documentId(), limitIds)
+            .get()
+            .addOnSuccessListener { documents ->
+                val posts = documents.toObjects(Post::class.java)
+                _savedPosts.value = posts
+            }
+            .addOnFailureListener {
+                Log.e("ProfileViewModel", "Gagal ambil saved posts", it)
+            }
     }
 
     fun loadMyPosts() {
@@ -66,70 +99,58 @@ class ProfileViewModel : ViewModel() {
             .whereEqualTo("authorId", userId)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e("ProfileViewModel", "Error loading posts", error)
-                    return@addSnapshotListener
-                }
-
+                if (error != null) return@addSnapshotListener
                 if (snapshot != null) {
-                    // Ambil BANYAK dokumen (List) -> Gunakan .toObjects (pakai 's')
                     _myPosts.value = snapshot.toObjects(Post::class.java)
                 }
             }
     }
 
-    // Fungsi Upload dengan LOGGING LENGKAP
+    // Fungsi Update Data Text Profil
+    fun updateProfileData(newBio: String, newMajor: String, newInstagram: String, newLinkedIn: String) {
+        val userId = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            try {
+                val updates = mapOf(
+                    "bio" to newBio,
+                    "major" to newMajor,
+                    "instagram" to newInstagram,
+                    "linkedin" to newLinkedIn
+                )
+                firestore.collection("users").document(userId).update(updates).await()
+                // Tidak perlu panggil loadUserProfile lagi karena sudah pakai listener
+            } catch (e: Exception) {
+                Log.e("ProfileViewModel", "Gagal update profil", e)
+            }
+        }
+    }
+
+    // Fungsi Upload Gambar
     fun updateProfilePicture(context: Context, imageUri: Uri) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                Log.d("ProfileUpload", "Mulai proses upload...")
-
                 val inputStream = context.contentResolver.openInputStream(imageUri)
                 val bytes = inputStream?.readBytes()
                 inputStream?.close()
 
                 if (bytes != null) {
-                    Log.d("ProfileUpload", "Gambar terbaca: ${bytes.size} bytes")
-
                     val reqFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
                     val body = MultipartBody.Part.createFormData("image", "avatar.jpg", reqFile)
-
-                    // Kirim ke ImgBB
                     val response = RetrofitClient.instance.uploadImage(IMGBB_API_KEY, body)
 
-                    if (response.isSuccessful) {
-                        val responseBody = response.body()
-                        Log.d("ProfileUpload", "Respon ImgBB Sukses. URL: ${responseBody?.data?.url}")
+                    if (response.isSuccessful && response.body()?.success == true) {
+                        val newUrl = response.body()?.data?.url ?: return@launch
+                        val userId = auth.currentUser?.uid ?: return@launch
 
-                        if (responseBody?.success == true) {
-                            val newUrl = responseBody.data.url
-                            val userId = auth.currentUser?.uid ?: return@launch
-
-                            Log.d("ProfileUpload", "Mengupdate Firestore untuk User ID: $userId")
-
-                            // Update URL di Firestore
-                            firestore.collection("users").document(userId)
-                                .update("profilePictureUrl", newUrl)
-                                .await()
-
-                            Log.d("ProfileUpload", "Firestore Berhasil Diupdate!")
-
-                            // Refresh data lokal
-                            loadUserProfile()
-                        } else {
-                            Log.e("ProfileUpload", "ImgBB response success = false")
-                        }
-                    } else {
-                        // Jika server menolak (misal API Key salah atau gambar terlalu besar)
-                        val errorBody = response.errorBody()?.string()
-                        Log.e("ProfileUpload", "GAGAL UPLOAD! Code: ${response.code()}, Error: $errorBody")
+                        firestore.collection("users").document(userId)
+                            .update("profilePictureUrl", newUrl)
+                            .await()
+                        // Listener otomatis update UI
                     }
-                } else {
-                    Log.e("ProfileUpload", "Gagal membaca file gambar (bytes null)")
                 }
             } catch (e: Exception) {
-                Log.e("ProfileUpload", "EXCEPTION KERAS: ${e.message}", e)
+                Log.e("ProfileViewModel", "Failed to update avatar", e)
             }
             _isLoading.value = false
         }

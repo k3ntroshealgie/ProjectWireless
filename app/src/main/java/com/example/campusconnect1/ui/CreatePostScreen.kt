@@ -4,9 +4,12 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,32 +24,28 @@ import coil.compose.AsyncImage
 fun CreatePostScreen(
     onPostSuccess: () -> Unit,
     onBack: () -> Unit,
-    // 👇 UPDATE: Receive groupId parameter
     groupId: String? = null,
     viewModel: CreatePostViewModel = viewModel()
 ) {
     var text by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
+    // 👇 State Kategori (Default General)
+    var selectedCategory by remember { mutableStateOf("General") }
+    val categories = listOf("General", "Academic", "Event", "Lost & Found", "Confess", "Market")
+
     val postState by viewModel.postState.collectAsState()
     val context = LocalContext.current
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        imageUri = uri
-    }
+    val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? -> imageUri = uri }
 
     LaunchedEffect(postState) {
         when(postState) {
             PostState.SUCCESS -> {
-                // Translated to English
-                Toast.makeText(context, "Post created successfully!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Post created!", Toast.LENGTH_SHORT).show()
                 viewModel.resetState()
                 onPostSuccess()
             }
             PostState.ERROR -> {
-                // Translated to English
                 Toast.makeText(context, "Failed to create post.", Toast.LENGTH_SHORT).show()
                 viewModel.resetState()
             }
@@ -58,25 +57,33 @@ fun CreatePostScreen(
         topBar = {
             TopAppBar(
                 title = { Text(if (groupId != null) "Post to Group" else "Create Post") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        // Translated contentDescription
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                }
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
-                .fillMaxSize()
-        ) {
+        Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxSize()) {
+
+            // 👇 UI PILIH KATEGORI
+            Text("Select Category:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                categories.forEach { category ->
+                    FilterChip(
+                        selected = (category == selectedCategory),
+                        onClick = { selectedCategory = category },
+                        label = { Text(category) },
+                        leadingIcon = if (category == selectedCategory) { { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) } } else null
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                // Translated label
                 label = { Text("What's on your mind?") },
                 modifier = Modifier.fillMaxWidth().height(150.dp),
                 maxLines = 5
@@ -85,43 +92,26 @@ fun CreatePostScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (imageUri != null) {
-                AsyncImage(
-                    model = imageUri,
-                    contentDescription = "Preview",
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
-                    contentScale = ContentScale.Crop
-                )
-                TextButton(onClick = { imageUri = null }) {
-                    // Translated button text
-                    Text("Remove Image")
-                }
+                AsyncImage(model = imageUri, contentDescription = "Preview", modifier = Modifier.fillMaxWidth().height(200.dp), contentScale = ContentScale.Crop)
+                TextButton(onClick = { imageUri = null }) { Text("Remove Image") }
             } else {
-                Button(
-                    onClick = { imagePickerLauncher.launch("image/*") },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                ) {
-                    // Translated button text
-                    Text("Add Image")
-                }
+                Button(onClick = { imagePickerLauncher.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)) { Text("Add Image") }
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
                 onClick = {
-                    // 👇 UPDATE: Send groupId to ViewModel
-                    viewModel.createPost(context, text, imageUri, groupId)
+                    // 👇 KIRIM KATEGORI
+                    viewModel.createPost(context, text, imageUri, selectedCategory, groupId)
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 enabled = text.isNotEmpty() && postState != PostState.LOADING
             ) {
                 if (postState == PostState.LOADING) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.width(8.dp))
-                    // Translated loading text
-                    Text("Uploading...")
+                    Text("Uploading...", modifier = Modifier.padding(start = 8.dp))
                 } else {
-                    // Translated button text
                     Text("Post Now")
                 }
             }

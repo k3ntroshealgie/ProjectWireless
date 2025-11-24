@@ -15,8 +15,11 @@ class DatabaseSeeder {
 
     private val firestore = FirebaseFirestore.getInstance()
 
-    // Daftar Kampus (Harus sama dengan yang ada di HomeViewModel)
+    // Daftar Kampus
     private val universities = listOf("ITB", "UI", "UGM", "ITS", "IPB", "UNAIR", "UNDIP", "UNPAD", "TELKOMU", "PU", "UNSRI")
+
+    // Daftar Kategori
+    private val categories = listOf("General", "Academic", "Event", "Lost & Found", "Confess", "Market")
 
     // --- DATA DUMMY GRUP (ENGLISH) ---
     private val groupTemplates = listOf(
@@ -53,17 +56,16 @@ class DatabaseSeeder {
                 onUpdate("Generating groups...")
 
                 universities.forEach { uniId ->
-                    // Ambil 3 grup acak untuk setiap kampus
                     val selectedGroups = groupTemplates.shuffled().take(3)
 
                     selectedGroups.forEach { (name, desc) ->
                         val docRef = firestore.collection("groups").document()
                         val group = Group(
                             groupId = docRef.id,
-                            name = "$name ($uniId)", // Contoh: Badminton Club (ITB)
+                            name = "$name ($uniId)",
                             description = desc,
                             universityId = uniId,
-                            creatorId = "admin_bot", // Fake ID
+                            creatorId = "admin_bot",
                             members = emptyList(),
                             memberCount = 0
                         )
@@ -90,20 +92,17 @@ class DatabaseSeeder {
                 onUpdate("Generating posts...")
 
                 universities.forEach { uniId ->
-                    // Ambil 5 postingan acak untuk setiap kampus
                     val selectedPosts = postTemplates.shuffled().take(5)
 
                     selectedPosts.forEach { text ->
                         val docRef = firestore.collection("posts").document()
-
-                        // Fake Usernames
                         val fakeUser = listOf("alex_student", "sarah_j", "mike_99", "campus_life", "john_doe").random()
 
-                        // Kita biarkan postId KOSONG di dalam objek,
-                        // karena kita pakai @DocumentId di DataModels.
-                        // Tapi kita set data ke docRef yang sudah punya ID.
+                        // Pilih kategori secara acak
+                        val randomCategory = categories.random()
+
                         val post = Post(
-                            // postId = docRef.id, <--- JANGAN DIISI AGAR TIDAK CRASH
+                            // postId JANGAN DIISI (biar @DocumentId yang handle)
                             authorId = "dummy_user_${UUID.randomUUID()}",
                             authorName = fakeUser,
                             universityId = uniId,
@@ -111,7 +110,14 @@ class DatabaseSeeder {
                             imageUrl = null,
                             timestamp = Date(),
                             voteCount = (0..50).random(),
-                            commentCount = 0
+                            commentCount = 0,
+
+                            // 👇 PERBAIKAN PENTING DISINI:
+                            likedBy = emptyList(), // Agar bisa di-like
+                            category = randomCategory, // Agar muncul di filter kategori
+
+                            groupId = null,
+                            groupName = null
                         )
                         batch.set(docRef, post)
                         count++
