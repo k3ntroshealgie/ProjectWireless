@@ -46,14 +46,14 @@ fun CreatePostScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? -> imageUri = uri }
 
     LaunchedEffect(postState) {
-        when(postState) {
-            PostState.SUCCESS -> {
+        when(val state = postState) {
+            is PostState.Success -> {
                 Toast.makeText(context, "Post created!", Toast.LENGTH_SHORT).show()
                 viewModel.resetState()
                 onPostSuccess()
             }
-            PostState.ERROR -> {
-                Toast.makeText(context, "Failed to create post.", Toast.LENGTH_SHORT).show()
+            is PostState.Error -> {
+                Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
                 viewModel.resetState()
             }
             else -> {}
@@ -177,9 +177,9 @@ fun CreatePostScreen(
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(25.dp),
-                enabled = text.isNotEmpty() && postState != PostState.LOADING
+                enabled = text.isNotEmpty() && postState !is PostState.Loading
             ) {
-                if (postState == PostState.LOADING) {
+                if (postState is PostState.Loading) {
                     CircularProgressIndicator(
                         color = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(24.dp),

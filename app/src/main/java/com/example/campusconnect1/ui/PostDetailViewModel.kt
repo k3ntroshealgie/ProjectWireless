@@ -74,6 +74,15 @@ class PostDetailViewModel : ViewModel() {
     fun sendComment(postId: String, text: String) {
         if (text.isBlank()) return
 
+        // 1. ML CHECK: Deteksi komentar toxic
+        val classification = com.example.campusconnect1.ml.TextClassifier.classify(text)
+        if (classification.isToxic) {
+            Log.w("PostDetail", "Toxic comment blocked: ${classification.confidence}")
+            // Idealnya kita beri feedback ke UI (misal lewat StateFlow error),
+            // tapi untuk sekarang kita return saja agar tidak terkirim.
+            return
+        }
+
         val userId = auth.currentUser?.uid ?: return
 
         firestore.collection("users").document(userId).get()

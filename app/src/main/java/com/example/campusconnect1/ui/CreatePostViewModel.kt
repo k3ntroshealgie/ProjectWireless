@@ -18,7 +18,12 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.Date
 
-enum class PostState { IDLE, LOADING, SUCCESS, ERROR }
+sealed interface PostState {
+    object Idle : PostState
+    object Loading : PostState
+    object Success : PostState
+    data class Error(val message: String) : PostState
+}
 
 class CreatePostViewModel : ViewModel() {
 
@@ -26,14 +31,21 @@ class CreatePostViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    private val _postState = MutableStateFlow(PostState.IDLE)
+    private val _postState = MutableStateFlow<PostState>(PostState.Idle)
     val postState: StateFlow<PostState> = _postState
 
     // 👇 UPDATE: Tambah param category
     fun createPost(context: Context, text: String, imageUri: Uri?, category: String, groupId: String? = null) {
         viewModelScope.launch {
-            _postState.value = PostState.LOADING
+            _postState.value = PostState.Loading
             try {
+                // 1. ML CHECK: Deteksi konten toxic
+                val classification = com.example.campusconnect1.ml.TextClassifier.classify(text)
+                if (classification.isToxic) {
+                    Log.w("CreatePost", "Toxic content detected: ${classification.confidence}")
+                    throw SecurityException("Post rejected: Toxic content detected.")
+                }
+
                 val user = auth.currentUser ?: throw IllegalStateException("User not logged in!")
                 val userDoc = firestore.collection("users").document(user.uid).get().await()
                 val authorName = userDoc.getString("fullName") ?: "Anonymous"
@@ -45,8 +57,6 @@ class CreatePostViewModel : ViewModel() {
 
                 var imageUrl: String? = null
                 if (imageUri != null) {
-                    // ... (Logika upload gambar sama seperti sebelumnya) ...
-                    // Biar pendek, asumsikan logika upload ada di sini (copy dari kode sebelumnya)
                     val inputStream = context.contentResolver.openInputStream(imageUri)
                     val bytes = inputStream?.readBytes()
                     inputStream?.close()
@@ -67,10 +77,7 @@ class CreatePostViewModel : ViewModel() {
                     universityId = universityId,
                     text = text,
                     imageUrl = imageUrl,
-
-                    // 👇 SIMPAN KATEGORI
                     category = category,
-
                     timestamp = Date(),
                     voteCount = 0,
                     commentCount = 0,
@@ -79,12 +86,15 @@ class CreatePostViewModel : ViewModel() {
                 )
 
                 firestore.collection("posts").add(newPost).await()
-                _postState.value = PostState.SUCCESS
+                _postState.value = PostState.Success
+            } catch (e: SecurityException) {
+                Log.e("CreatePost", "Toxic Error", e)
+                _postState.value = PostState.Error(e.message ?: "Content contains toxic words.")
             } catch (e: Exception) {
                 Log.e("CreatePost", "Error", e)
-                _postState.value = PostState.ERROR
+                _postState.value = PostState.Error("Failed to create post. Check connection.")
             }
         }
     }
-    fun resetState() { _postState.value = PostState.IDLE }
+    fun resetState() { _postState.value = PostState.Idle }
 }
