@@ -1,242 +1,230 @@
 package com.example.campusconnect1.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.campusconnect1.Post
-import com.example.campusconnect1.ui.theme.*
-import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    homeViewModel: HomeViewModel = viewModel(),
     onFabClick: () -> Unit,
     onLogout: () -> Unit,
     onPostClick: (String) -> Unit,
     onProfileClick: () -> Unit,
-    onUniversityChange: (String) -> Unit
+    onUniversityChange: (String) -> Unit,
+    onSearchClick: () -> Unit,
+    viewModel: HomeViewModel = viewModel()
 ) {
-    val posts by homeViewModel.filteredPosts.collectAsState()
-    val searchText by homeViewModel.searchText.collectAsState()
-    val isLoading by homeViewModel.isLoading.collectAsState()
-    val currentUni by homeViewModel.currentViewUniversity.collectAsState()
-    val canPost by homeViewModel.canPost.collectAsState()
-    val currentSort by homeViewModel.currentSortType.collectAsState()
-    val universities = homeViewModel.availableUniversities
-    val currentUser by homeViewModel.currentUserData.collectAsState()
+    val posts by viewModel.filteredPosts.collectAsState()
+    val currentUniversity by viewModel.currentViewUniversity.collectAsState()
+    val canPost by viewModel.canPost.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val currentUser by viewModel.currentUserData.collectAsState()
+    
+    // State for features
+    val selectedCategory by viewModel.selectedCategoryFilter.collectAsState()
+    val currentSortType by viewModel.currentSortType.collectAsState()
+    var showUniDropdown by remember { mutableStateOf(false) }
+    
+    val categories = listOf("All", "Academic", "News", "Event", "Confession", "Lost & Found")
 
-    val selectedCategory by homeViewModel.selectedCategoryFilter.collectAsState()
-    val categories = listOf("All", "General", "Academic", "Event", "Lost & Found", "Confess", "Market")
-
-    var expanded by remember { mutableStateOf(false) }
-    var isSearching by remember { mutableStateOf(false) }
-
-    var postToEdit by remember { mutableStateOf<Post?>(null) }
-    var editTextField by remember { mutableStateOf("") }
-
-    LaunchedEffect(currentUni) {
-        if (currentUni != "Loading...") {
-            onUniversityChange(currentUni)
-        }
-    }
-
-    if (postToEdit != null) {
-        AlertDialog(
-            onDismissRequest = { postToEdit = null },
-            containerColor = NeoCard,
-            titleContentColor = NeoText,
-            textContentColor = NeoText,
-            title = { Text("Edit Post") },
-            text = {
-                OutlinedTextField(
-                    value = editTextField,
-                    onValueChange = { editTextField = it },
-                    label = { Text("Content") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NeoPrimary,
-                        unfocusedBorderColor = NeoTextLight,
-                        focusedTextColor = NeoText,
-                        unfocusedTextColor = NeoText
-                    )
-                )
-            },
-            confirmButton = {
-                Button(onClick = { homeViewModel.updatePost(postToEdit!!, editTextField); postToEdit = null }, colors = ButtonDefaults.buttonColors(containerColor = NeoPrimary)) { Text("Save") }
-            },
-            dismissButton = { TextButton(onClick = { postToEdit = null }) { Text("Cancel", color = NeoTextLight) } }
-        )
+    // Notify parent about university changes
+    LaunchedEffect(currentUniversity) {
+        onUniversityChange(currentUniversity)
     }
 
     Scaffold(
-        containerColor = NeoBackground,
         topBar = {
-            Column {
-                if (isSearching) {
-                    TopAppBar(
-                        title = {
-                            TextField(
-                                value = searchText,
-                                onValueChange = { homeViewModel.onSearchTextChange(it) },
-                                placeholder = { Text("Search...", color = NeoTextLight) },
-                                singleLine = true,
-                                colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedTextColor = NeoText,
-                                    unfocusedTextColor = NeoText
-                                ),
-                                modifier = Modifier.fillMaxWidth()
+            TopAppBar(
+                title = {
+                    Column(modifier = Modifier.clickable { showUniDropdown = true }) {
+                        Text(
+                            text = "CampusConnect+",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = currentUniversity,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        },
-                        navigationIcon = { IconButton(onClick = { isSearching = false; homeViewModel.onSearchTextChange("") }) { Icon(Icons.Default.ArrowBack, "Back", tint = NeoText) } },
-                        actions = { if (searchText.isNotEmpty()) IconButton(onClick = { homeViewModel.onSearchTextChange("") }) { Icon(Icons.Default.Close, "Clear", tint = NeoText) } },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = NeoCard)
-                    )
-                } else {
-                    TopAppBar(
-                        title = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .clickable { expanded = true }
-                                    .padding(8.dp)
-                            ) {
-                                Text(
-                                    text = currentUni,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = NeoText,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Icon(Icons.Default.ArrowDropDown, "Switch", tint = NeoSecondary)
-
-                                DropdownMenu(
-                                    expanded = expanded,
-                                    onDismissRequest = { expanded = false },
-                                    modifier = Modifier.background(NeoCard)
-                                ) {
-                                    universities.forEach { uni ->
-                                        DropdownMenuItem(text = { Text(uni, color = NeoText) }, onClick = { homeViewModel.switchCampus(uni); expanded = false })
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.ArrowDropDown,
+                                contentDescription = "Switch Campus",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        
+                        // University Dropdown
+                        DropdownMenu(
+                            expanded = showUniDropdown,
+                            onDismissRequest = { showUniDropdown = false }
+                        ) {
+                            viewModel.availableUniversities.forEach { uni ->
+                                DropdownMenuItem(
+                                    text = { Text(uni) },
+                                    onClick = {
+                                        viewModel.switchCampus(uni)
+                                        showUniDropdown = false
+                                    },
+                                    trailingIcon = {
+                                        if (uni == currentUniversity) {
+                                            Icon(Icons.Default.Check, contentDescription = "Selected")
+                                        }
                                     }
-                                }
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = NeoCard),
-                        actions = {
-                            IconButton(onClick = { isSearching = true }) { Icon(Icons.Default.Search, "Search", tint = NeoText) }
-                            IconButton(onClick = onProfileClick) { Icon(Icons.Default.Person, "Profile", tint = NeoText) }
-                            IconButton(onClick = { FirebaseAuth.getInstance().signOut(); onLogout() }) { Icon(Icons.Default.ExitToApp, "Logout", tint = Color.Red) }
-                        }
-                    )
-                }
-
-                if (!isSearching) {
-                    Column(modifier = Modifier.background(NeoCard)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilterChip(
-                                selected = currentSort == SortType.POPULAR,
-                                onClick = { homeViewModel.switchSortType(SortType.POPULAR) },
-                                label = { Text("Popular") },
-                                leadingIcon = if (currentSort == SortType.POPULAR) { { Icon(Icons.Default.Favorite, null, Modifier.size(18.dp)) } } else null,
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = NeoAccent.copy(alpha = 0.2f),
-                                    selectedLabelColor = Color.Black,
-                                    selectedLeadingIconColor = NeoPrimary
-                                )
-                            )
-                            FilterChip(
-                                selected = currentSort == SortType.NEWEST,
-                                onClick = { homeViewModel.switchSortType(SortType.NEWEST) },
-                                label = { Text("Newest") },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NeoBackground, selectedLabelColor = NeoText)
-                            )
-                        }
-
-                        LazyRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp)
-                        ) {
-                            items(categories) { cat ->
-                                FilterChip(
-                                    selected = selectedCategory == cat,
-                                    onClick = { homeViewModel.onCategoryFilterChange(cat) },
-                                    label = { Text(cat) },
-                                    leadingIcon = if (selectedCategory == cat) { { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) } } else null,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = NeoSecondary.copy(alpha = 0.2f),
-                                        selectedLabelColor = NeoPrimary
-                                    )
                                 )
                             }
                         }
-                        Divider(color = NeoTextLight.copy(alpha = 0.1f))
                     }
-                }
-            }
+                },
+                actions = {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(Icons.Default.Search, contentDescription = "Search")
+                    }
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
         },
         floatingActionButton = {
-            if (canPost && !isSearching) {
-                FloatingActionButton(onClick = onFabClick, containerColor = NeoPrimary, contentColor = Color.White) {
-                    Icon(Icons.Default.Add, "New Post")
+            if (canPost) {
+                FloatingActionButton(
+                    onClick = onFabClick,
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Create Post")
                 }
             }
         }
-    ) { paddingValues ->
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // 1. Category Filters (LazyRow)
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(categories) { category ->
+                    FilterChip(
+                        selected = selectedCategory == category,
+                        onClick = { viewModel.onCategoryFilterChange(category) },
+                        label = { Text(category) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    )
+                }
+            }
+            
+            // 2. Sort Options & Info
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${posts.size} posts",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SuggestionChip(
+                        onClick = { viewModel.switchSortType(SortType.POPULAR) },
+                        label = { Text("Popular") },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = if (currentSortType == SortType.POPULAR) 
+                                MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                        ),
+                        border = if (currentSortType == SortType.POPULAR) null 
+                            else SuggestionChipDefaults.suggestionChipBorder(enabled = true)
+                    )
+                    SuggestionChip(
+                        onClick = { viewModel.switchSortType(SortType.NEWEST) },
+                        label = { Text("Newest") },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = if (currentSortType == SortType.NEWEST) 
+                                MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                        ),
+                        border = if (currentSortType == SortType.NEWEST) null 
+                            else SuggestionChipDefaults.suggestionChipBorder(enabled = true)
+                    )
+                }
+            }
+            
+            Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
 
-        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = NeoPrimary)
-            } else {
-                if (posts.isEmpty()) {
-                    Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(if (searchText.isNotEmpty()) "No results for '$searchText'" else "No posts yet in $currentUni.", color = NeoTextLight)
-                        if (canPost) Text("Be the first to post!", color = NeoPrimary, fontWeight = FontWeight.Bold)
+            // 3. Post List
+            Box(modifier = Modifier.weight(1f)) {
+                if (isLoading && posts.isEmpty()) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else if (posts.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "No posts yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Be the first to post in your community!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 } else {
-                    // 👇 BAGIAN TERPENTING
                     LazyColumn(
-                        contentPadding = PaddingValues(bottom = 100.dp),
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         items(posts) { post ->
                             val isBookmarked = currentUser?.savedPostIds?.contains(post.postId) == true
-
+                            
                             Box(modifier = Modifier.clickable { onPostClick(post.postId) }) {
                                 PostCard(
                                     post = post,
-                                    // 👇 KABEL UTAMA LIKE
-                                    onLikeClick = { selectedPost ->
-                                        homeViewModel.toggleLike(selectedPost)
-                                    },
+                                    onLikeClick = { viewModel.toggleLike(it) },
                                     onCommentClick = { onPostClick(it.postId) },
-                                    onDeleteClick = { homeViewModel.deletePost(it) },
-                                    onEditClick = { editTextField = it.text; postToEdit = it },
                                     isBookmarked = isBookmarked,
-                                    onBookmarkClick = { homeViewModel.toggleBookmark(it) }
+                                    onBookmarkClick = { viewModel.toggleBookmark(it) }
                                 )
                             }
                         }

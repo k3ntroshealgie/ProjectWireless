@@ -21,8 +21,10 @@ import com.example.campusconnect1.ui.*
 import com.example.campusconnect1.ui.theme.CampusConnect1Theme
 import com.google.firebase.auth.FirebaseAuth
 
-enum class CurrentScreen { LOGIN, REGISTER, HOME, CREATE_POST, POST_DETAIL, PROFILE, GROUP_LIST, GROUP_FEED }
+// Enum untuk daftar layar yang tersedia
+enum class CurrentScreen { LOGIN, REGISTER, HOME, CREATE_POST, POST_DETAIL, PROFILE, GROUP_LIST, GROUP_FEED, SEARCH }
 
+// Data class untuk item Bottom Navigation
 data class BottomNavItem(
     val screen: CurrentScreen,
     val label: String,
@@ -35,22 +37,30 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val auth = FirebaseAuth.getInstance()
+        // Cek Login: Jika user ada -> Home, jika tidak -> Login
         val startScreen = if (auth.currentUser != null) CurrentScreen.HOME else CurrentScreen.LOGIN
 
         setContent {
-            // 👇 PANGGIL TEMA TANPA PARAMETER (Otomatis Light)
+            // 👇 PERBAIKAN 1: Panggil Theme tanpa parameter 'darkTheme'
             CampusConnect1Theme {
+                // State Navigasi Utama
                 var currentScreen by remember { mutableStateOf(startScreen) }
+
+                // State Data Sementara (untuk oper-operan data antar layar)
                 var selectedPostId by remember { mutableStateOf("") }
                 var selectedGroupId by remember { mutableStateOf<String?>(null) }
+
+                // Default ke ITB, tapi nanti diupdate oleh HomeScreen
                 var targetGroupUni by remember { mutableStateOf("ITB") }
 
+                // Konfigurasi Menu Bawah
                 val navItems = listOf(
                     BottomNavItem(CurrentScreen.HOME, "Home", Icons.Outlined.Home, Icons.Filled.Home),
                     BottomNavItem(CurrentScreen.GROUP_LIST, "Groups", Icons.Outlined.List, Icons.Filled.List),
                     BottomNavItem(CurrentScreen.PROFILE, "Profile", Icons.Outlined.Person, Icons.Filled.Person),
                 )
 
+                // Bottom Bar hanya muncul di layar utama
                 val showBottomBar = currentScreen in listOf(CurrentScreen.HOME, CurrentScreen.GROUP_LIST, CurrentScreen.PROFILE)
 
                 Scaffold(
@@ -86,6 +96,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { innerPadding ->
+                    // Konten Utama
                     Surface(
                         modifier = Modifier
                             .fillMaxSize()
@@ -93,6 +104,7 @@ class MainActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.background
                     ) {
                         when (currentScreen) {
+                            // --- AUTHENTICATION ---
                             CurrentScreen.LOGIN -> {
                                 LoginScreen(
                                     onLoginSuccess = { currentScreen = CurrentScreen.HOME },
@@ -105,6 +117,8 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToLogin = { currentScreen = CurrentScreen.LOGIN }
                                 )
                             }
+
+                            // --- HOME ---
                             CurrentScreen.HOME -> {
                                 HomeScreen(
                                     onFabClick = {
@@ -117,12 +131,32 @@ class MainActivity : ComponentActivity() {
                                         currentScreen = CurrentScreen.POST_DETAIL
                                     },
                                     onProfileClick = { currentScreen = CurrentScreen.PROFILE },
+
+                                    // Update kampus target untuk tab Groups
                                     onUniversityChange = { uni ->
                                         targetGroupUni = uni
+                                    },
+
+                                    // Navigasi ke Layar Pencarian
+                                    onSearchClick = {
+                                        currentScreen = CurrentScreen.SEARCH
                                     }
                                 )
                             }
 
+                            // --- SEARCH ---
+                            CurrentScreen.SEARCH -> {
+                                SearchScreen(
+                                    currentUniversityId = targetGroupUni,
+                                    onBack = { currentScreen = CurrentScreen.HOME },
+                                    onPostClick = { postId ->
+                                        selectedPostId = postId
+                                        currentScreen = CurrentScreen.POST_DETAIL
+                                    }
+                                )
+                            }
+
+                            // --- GROUPS ---
                             CurrentScreen.GROUP_LIST -> {
                                 GroupListScreen(
                                     targetUniversityId = targetGroupUni,
@@ -153,12 +187,11 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            // 👇 UPDATE PROFILE: Hapus parameter theme
+                            // --- PROFILE ---
                             CurrentScreen.PROFILE -> {
+                                // 👇 PERBAIKAN 2: Hapus parameter isDarkTheme & onThemeChange
                                 ProfileScreen(
                                     onBack = { currentScreen = CurrentScreen.HOME },
-
-                                    // 👇 TAMBAHAN PENTING: Agar bisa klik detail dari profil
                                     onPostClick = { postId ->
                                         selectedPostId = postId
                                         currentScreen = CurrentScreen.POST_DETAIL
@@ -166,6 +199,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
+                            // --- CREATE & DETAIL ---
                             CurrentScreen.CREATE_POST -> {
                                 CreatePostScreen(
                                     groupId = selectedGroupId,

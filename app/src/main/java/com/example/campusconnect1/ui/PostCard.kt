@@ -1,227 +1,307 @@
 package com.example.campusconnect1.ui
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark // Icon Penuh
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.BookmarkBorder // Icon Garis
-import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Comment
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.campusconnect1.Post
-import com.example.campusconnect1.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
+import java.text.SimpleDateFormat
+import java.util.*
 
+/**
+ * Modern PostCard Component
+ * Inspired by LinkedIn & Reddit design patterns (2024-2025)
+ * 
+ * Features:
+ * - Clean elevated card design
+ * - Author header with avatar
+ * - Category badge
+ * - Image support with rounded corners
+ * - Action bar with like, comment, bookmark
+ * - Smooth animations
+ */
 @Composable
 fun PostCard(
     post: Post,
     onLikeClick: (Post) -> Unit,
     onCommentClick: (Post) -> Unit,
-    onEditClick: (Post) -> Unit = {},
-    onDeleteClick: (Post) -> Unit = {},
-    onBookmarkClick: (Post) -> Unit = {},
-    isBookmarked: Boolean = false // Status apakah sudah disimpan
+    isBookmarked: Boolean = false,
+    onBookmarkClick: ((Post) -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     val isLiked = post.likedBy.contains(currentUserId)
-    val isOwner = currentUserId == post.authorId
-    var showMenu by remember { mutableStateOf(false) }
-    val context = LocalContext.current
+    
+    // Animated colors for like button
+    val likeColor by animateColorAsState(
+        targetValue = if (isLiked) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurfaceVariant,
+        label = "likeColor"
+    )
+    
+    val bookmarkColor by animateColorAsState(
+        targetValue = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        label = "bookmarkColor"
+    )
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 1.dp),
-        shape = RectangleShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), // 👇 FIX
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
+        ),
+        shape = MaterialTheme.shapes.medium
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-
-            // HEADER
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // ===== HEADER: Author Info =====
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Avatar
                 if (post.authorAvatarUrl.isNotEmpty()) {
                     AsyncImage(
-                        model = ImageRequest.Builder(context).data(post.authorAvatarUrl).crossfade(true).build(),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp).clip(CircleShape),
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(post.authorAvatarUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Avatar",
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape),
                         contentScale = ContentScale.Crop
                     )
                 } else {
+                    // Default avatar with initial
                     Box(
-                        modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer), // 👇 FIX
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(post.authorName.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column {
-                    Text(
-                        text = "c/${post.universityId}",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface // 👇 FIX
-                    )
-                    Text(
-                        text = "u/${post.authorName}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant // 👇 FIX
-                    )
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                IconButton(onClick = { onBookmarkClick(post) }, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = "Bookmark",
-                        tint = if (isBookmarked) NeoPrimary else NeoTextLight // Biru jika disimpan
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                if (isOwner) {
-                    Box {
-                        IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            modifier = Modifier.background(MaterialTheme.colorScheme.surface) // 👇 FIX
-                        ) {
-                            DropdownMenuItem(text = { Text("Edit", color = MaterialTheme.colorScheme.onSurface) }, onClick = { onEditClick(post); showMenu = false })
-                            DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { onDeleteClick(post); showMenu = false })
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // LABEL KATEGORI
-            Surface(
-                color = MaterialTheme.colorScheme.tertiaryContainer, // 👇 FIX
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.padding(bottom = 8.dp)
-            ) {
-                Text(
-                    text = post.category.uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    color = MaterialTheme.colorScheme.onTertiaryContainer // 👇 FIX
-                )
-            }
-
-            // CONTENT TEXT
-            Text(
-                text = post.text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface, // 👇 FIX
-                lineHeight = 22.sp
-            )
-
-            // CONTENT IMAGE
-            if (post.imageUrl != null && post.imageUrl.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(post.imageUrl).crossfade(true).build(),
-                    contentDescription = "Post Image",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .heightIn(max = 400.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ACTION BAR
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start
-            ) {
-                // VOTE PILL
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.surfaceVariant, // 👇 FIX
-                    border = if (isLiked) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha=0.5f)) else null,
-                    modifier = Modifier.height(36.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) {
-                        IconButton(onClick = { onLikeClick(post) }, modifier = Modifier.size(32.dp)) {
-                            Icon(
-                                imageVector = if (isLiked) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
-                                contentDescription = "Upvote",
-                                tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
                         Text(
-                            text = "${post.voteCount}",
-                            style = MaterialTheme.typography.labelLarge,
+                            text = post.authorName.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 8.dp)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
-
+                
                 Spacer(modifier = Modifier.width(12.dp))
-
-                // COMMENT BUTTON
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.surfaceVariant, // 👇 FIX
-                    modifier = Modifier
-                        .height(36.dp)
-                        .clickable { onCommentClick(post) }
-                ) {
+                
+                // Author name and university
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = post.authorName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "💬 ${post.commentCount} Comments",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
+                            text = post.universityId,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (post.timestamp != null) {
+                            Text(
+                                text = "•",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = formatTimeAgo(post.timestamp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
+                }
+                
+                // Category badge
+                if (post.category.isNotEmpty() && post.category != "General") {
+                    AssistChip(
+                        onClick = { },
+                        label = {
+                            Text(
+                                text = post.category,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        border = null
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // ===== CONTENT: Post Text =====
+            Text(
+                text = post.text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            // ===== IMAGE (if exists) =====
+            if (!post.imageUrl.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(post.imageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Post image",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop,
+                    error = rememberVectorPainter(Icons.Default.Warning)
+                )
+            }
+            
+            // Group badge (if posted in a group)
+            if (!post.groupName.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "📌 ${post.groupName}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // ===== ACTION BAR: Like, Comment, Bookmark =====
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Like button
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onLikeClick(post) }
+                ) {
+                    IconButton(onClick = { onLikeClick(post) }) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Like",
+                            tint = likeColor
+                        )
+                    }
+                    Text(
+                        text = "${post.voteCount}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = likeColor,
+                        fontWeight = if (isLiked) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+                
+                // Comment button
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onCommentClick(post) }
+                ) {
+                    IconButton(onClick = { onCommentClick(post) }) {
+                        Icon(
+                            imageVector = Icons.Default.Comment,
+                            contentDescription = "Comment",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = "${post.commentCount}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                // Bookmark button (if callback provided)
+                if (onBookmarkClick != null) {
+                    IconButton(onClick = { onBookmarkClick(post) }) {
+                        Icon(
+                            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                            contentDescription = "Bookmark",
+                            tint = bookmarkColor
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(48.dp))
                 }
             }
         }
+    }
+}
+
+/**
+ * Helper function to format timestamp as relative time
+ * e.g., "2m ago", "5h ago", "3d ago"
+ */
+private fun formatTimeAgo(date: Date): String {
+    val now = Date()
+    val diff = now.time - date.time
+    
+    val seconds = diff / 1000
+    val minutes = seconds / 60
+    val hours = minutes / 60
+    val days = hours / 24
+    
+    return when {
+        days > 0 -> "${days}d ago"
+        hours > 0 -> "${hours}h ago"
+        minutes > 0 -> "${minutes}m ago"
+        else -> "Just now"
     }
 }

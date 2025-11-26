@@ -3,6 +3,7 @@ package com.example.campusconnect1.ui
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.campusconnect1.Group
 import com.example.campusconnect1.Post
 import com.example.campusconnect1.User
 import com.google.firebase.auth.FirebaseAuth
@@ -204,5 +205,32 @@ class HomeViewModel : ViewModel() {
         if (_currentViewUniversity.value != "Loading...") {
             startListeningToPosts(_currentViewUniversity.value, _currentSortType.value)
         }
+    }
+
+    private val _allUsersInUni = MutableStateFlow<List<User>>(emptyList())
+    val allUsersInUni: StateFlow<List<User>> = _allUsersInUni
+
+    private val _allGroupsInUni = MutableStateFlow<List<Group>>(emptyList())
+    val allGroupsInUni: StateFlow<List<Group>> = _allGroupsInUni
+
+    // Dipanggil saat Home/ViewModel dibuat
+    fun fetchAllUsersAndGroups(universityId: String) {
+        // Ambil Semua User
+        firestore.collection("users")
+            .whereEqualTo("universityId", universityId)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null) {
+                    _allUsersInUni.value = snapshot.toObjects(User::class.java)
+                }
+            }
+
+        // Ambil Semua Grup
+        firestore.collection("groups")
+            .whereEqualTo("universityId", universityId)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null) {
+                    _allGroupsInUni.value = snapshot.toObjects(Group::class.java)
+                }
+            }
     }
 }
