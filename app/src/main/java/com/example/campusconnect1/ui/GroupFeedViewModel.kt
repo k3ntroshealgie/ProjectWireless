@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 class GroupFeedViewModel : ViewModel() {
 
     private val firestore = FirebaseFirestore.getInstance()
+    private val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
 
     // Data Grup (Header)
     private val _groupInfo = MutableStateFlow<Group?>(null)
@@ -50,5 +51,20 @@ class GroupFeedViewModel : ViewModel() {
                 }
                 _isLoading.value = false
             }
+    }
+
+
+    fun deletePost(post: Post) {
+        val userId = auth.currentUser?.uid ?: return
+        if (post.authorId == userId) {
+            firestore.collection("posts").document(post.postId).delete()
+        }
+    }
+
+    fun updatePost(post: Post, newText: String) {
+        val userId = auth.currentUser?.uid ?: return
+        if (post.authorId == userId) {
+            firestore.collection("posts").document(post.postId).update("text", newText)
+        }
     }
 }

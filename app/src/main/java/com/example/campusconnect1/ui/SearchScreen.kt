@@ -26,6 +26,7 @@ import com.example.campusconnect1.Group
 import com.example.campusconnect1.Post
 import com.example.campusconnect1.User
 import com.example.campusconnect1.ui.theme.*
+import com.google.firebase.auth.FirebaseAuth
 
 enum class SearchType { POSTS, USERS, GROUPS }
 
@@ -42,6 +43,54 @@ fun SearchScreen(
     val users by homeViewModel.allUsersInUni.collectAsState()
     val groups by homeViewModel.allGroupsInUni.collectAsState()
     val searchText by homeViewModel.searchText.collectAsState()
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+    
+    // Dialog States
+    var showDeletePostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var showEditPostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var editPostText by remember { mutableStateOf("") }
+
+    if (showDeletePostDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showDeletePostDialog = null },
+            title = { Text("Delete Post") },
+            text = { Text("Are you sure you want to delete this post?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeletePostDialog?.let { homeViewModel.deletePost(it) }
+                    showDeletePostDialog = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeletePostDialog = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showEditPostDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showEditPostDialog = null },
+            title = { Text("Edit Post") },
+            text = {
+                OutlinedTextField(
+                    value = editPostText,
+                    onValueChange = { editPostText = it },
+                    label = { Text("Post Content") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 5
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEditPostDialog?.let { homeViewModel.updatePost(it, editPostText) }
+                    showEditPostDialog = null
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditPostDialog = null }) { Text("Cancel") }
+            }
+        )
+    }
     
     var selectedTab by remember { mutableStateOf(SearchType.POSTS) }
     val tabTitles = listOf("Posts", "Users", "Groups")
@@ -141,10 +190,16 @@ fun SearchScreen(
                             items(posts) { post ->
                                 PostCard(
                                     post = post,
+                                    currentUserId = currentUserId,
                                     onLikeClick = { homeViewModel.toggleLike(it) },
                                     onCommentClick = { onPostClick(it.postId) },
-                                    isBookmarked = false, // TODO: Implement bookmark check if needed
+                                    isBookmarked = false,
                                     onBookmarkClick = { /* TODO */ },
+                                    onEditClick = {
+                                        editPostText = it.text
+                                        showEditPostDialog = it
+                                    },
+                                    onDeleteClick = { showDeletePostDialog = it },
                                     modifier = Modifier.clickable { onPostClick(post.postId) }
                                 )
                             }
@@ -157,7 +212,6 @@ fun SearchScreen(
                         } else {
                             items(filteredUsers) { user ->
                                 UserItem(user)
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
                             }
                         }
                     }
@@ -168,7 +222,6 @@ fun SearchScreen(
                         } else {
                             items(filteredGroups) { group ->
                                 GroupSearchItem(group)
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
                             }
                         }
                     }
@@ -177,6 +230,7 @@ fun SearchScreen(
         }
     }
 }
+
 
 @Composable
 fun EmptyState(message: String) {

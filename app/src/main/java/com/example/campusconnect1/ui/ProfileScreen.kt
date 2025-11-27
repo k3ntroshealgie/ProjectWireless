@@ -35,6 +35,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.campusconnect1.ui.theme.AppShapes
 import androidx.compose.foundation.ExperimentalFoundationApi
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -48,6 +49,7 @@ fun ProfileScreen(
     val savedPosts by viewModel.savedPosts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
     // State Tab
     var selectedTab by remember { mutableStateOf(0) }
@@ -61,6 +63,53 @@ fun ProfileScreen(
     var editMajor by remember { mutableStateOf("") }
     var editInsta by remember { mutableStateOf("") }
     var editLinked by remember { mutableStateOf("") }
+
+    // Dialog States
+    var showDeletePostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var showEditPostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var editPostText by remember { mutableStateOf("") }
+
+    if (showDeletePostDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showDeletePostDialog = null },
+            title = { Text("Delete Post") },
+            text = { Text("Are you sure you want to delete this post?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeletePostDialog?.let { viewModel.deletePost(it) }
+                    showDeletePostDialog = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeletePostDialog = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showEditPostDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showEditPostDialog = null },
+            title = { Text("Edit Post") },
+            text = {
+                OutlinedTextField(
+                    value = editPostText,
+                    onValueChange = { editPostText = it },
+                    label = { Text("Post Content") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 5
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEditPostDialog?.let { viewModel.updatePost(it, editPostText) }
+                    showEditPostDialog = null
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditPostDialog = null }) { Text("Cancel") }
+            }
+        )
+    }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { viewModel.updateProfilePicture(context, it) }
@@ -362,54 +411,46 @@ fun ProfileScreen(
                     } else {
                         items(myPosts) { post ->
                             val isBookmarked = user?.savedPostIds?.contains(post.postId) == true
-                            Box(modifier = Modifier.clickable { onPostClick(post.postId) }) {
-                                PostCard(
-                                    post = post,
-                                    onLikeClick = { viewModel.toggleLike(it) },
-                                    onCommentClick = { onPostClick(it.postId) },
-                                    isBookmarked = isBookmarked,
-                                    onBookmarkClick = { viewModel.toggleBookmark(it) }
-                                )
-                            }
+                            PostCard(
+                                post = post,
+                                currentUserId = currentUserId,
+                                onLikeClick = { viewModel.toggleLike(it) },
+                                onCommentClick = { onPostClick(it.postId) },
+                                isBookmarked = user?.savedPostIds?.contains(post.postId) == true,
+                                onBookmarkClick = { viewModel.toggleBookmark(it) },
+                                onEditClick = {
+                                    editPostText = it.text
+                                    showEditPostDialog = it
+                                },
+                                onDeleteClick = { showDeletePostDialog = it },
+                                modifier = Modifier.clickable { onPostClick(post.postId) }
+                            )
                         }
                     }
                 } else {
                     // SAVED POSTS
                     if (savedPosts.isEmpty()) {
-                        item {
+                         item {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(48.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        Icons.Outlined.BookmarkBorder,
-                                        null,
-                                        modifier = Modifier.size(48.dp),
-                                        tint = MaterialTheme.colorScheme.outlineVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        "No saved posts",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                                Text("No saved posts", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     } else {
                         items(savedPosts) { post ->
-                            Box(modifier = Modifier.clickable { onPostClick(post.postId) }) {
-                                PostCard(
-                                    post = post,
-                                    onLikeClick = { viewModel.toggleLike(it) },
-                                    onCommentClick = { onPostClick(it.postId) },
-                                    isBookmarked = true,
-                                    onBookmarkClick = { viewModel.toggleBookmark(it) }
-                                )
-                            }
+                            PostCard(
+                                post = post,
+                                currentUserId = currentUserId,
+                                onLikeClick = { viewModel.toggleLike(it) },
+                                onCommentClick = { onPostClick(it.postId) },
+                                isBookmarked = true,
+                                onBookmarkClick = { viewModel.toggleBookmark(it) },
+                                modifier = Modifier.clickable { onPostClick(post.postId) }
+                            )
                         }
                     }
                 }

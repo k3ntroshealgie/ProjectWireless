@@ -9,13 +9,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Comment
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,14 +50,18 @@ import java.util.*
 @Composable
 fun PostCard(
     post: Post,
+    currentUserId: String?,
     onLikeClick: (Post) -> Unit,
     onCommentClick: (Post) -> Unit,
     isBookmarked: Boolean = false,
     onBookmarkClick: ((Post) -> Unit)? = null,
+    onEditClick: ((Post) -> Unit)? = null,
+    onDeleteClick: ((Post) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+    // val currentUserId = FirebaseAuth.getInstance().currentUser?.uid (Removed)
     val isLiked = post.likedBy.contains(currentUserId)
+    var showMenu by remember { mutableStateOf(false) }
     
     // Animated colors for like button
     val likeColor by animateColorAsState(
@@ -172,6 +178,40 @@ fun PostCard(
                         ),
                         border = null
                     )
+                }
+
+                // More Menu (Edit/Delete) - Only for Author
+                if (currentUserId == post.authorId) {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            if (onEditClick != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Edit") },
+                                    onClick = {
+                                        showMenu = false
+                                        onEditClick(post)
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                                )
+                            }
+                            if (onDeleteClick != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Delete") },
+                                    onClick = {
+                                        showMenu = false
+                                        onDeleteClick(post)
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
             

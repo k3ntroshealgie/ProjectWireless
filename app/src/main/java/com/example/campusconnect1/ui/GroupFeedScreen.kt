@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +35,55 @@ fun GroupFeedScreen(
     val posts by viewModel.groupPosts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val canPost by homeViewModel.canPost.collectAsState()
+
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+
+    // Dialog States
+    var showDeletePostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var showEditPostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var editPostText by remember { mutableStateOf("") }
+
+    if (showDeletePostDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showDeletePostDialog = null },
+            title = { Text("Delete Post") },
+            text = { Text("Are you sure you want to delete this post?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeletePostDialog?.let { viewModel.deletePost(it) }
+                    showDeletePostDialog = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeletePostDialog = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showEditPostDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showEditPostDialog = null },
+            title = { Text("Edit Post") },
+            text = {
+                OutlinedTextField(
+                    value = editPostText,
+                    onValueChange = { editPostText = it },
+                    label = { Text("Post Content") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 5
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEditPostDialog?.let { viewModel.updatePost(it, editPostText) }
+                    showEditPostDialog = null
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditPostDialog = null }) { Text("Cancel") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -141,10 +191,16 @@ fun GroupFeedScreen(
                         items(posts) { post ->
                             PostCard(
                                 post = post,
+                                currentUserId = currentUserId,
                                 onLikeClick = { homeViewModel.toggleLike(it) },
                                 onCommentClick = { onPostClick(it.postId) },
-                                isBookmarked = false, // TODO: Implement bookmark logic
+                                isBookmarked = false,
                                 onBookmarkClick = { /* TODO */ },
+                                onEditClick = {
+                                    editPostText = it.text
+                                    showEditPostDialog = it
+                                },
+                                onDeleteClick = { showDeletePostDialog = it },
                                 modifier = Modifier.clickable { onPostClick(post.postId) }
                             )
                         }

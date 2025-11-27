@@ -3,7 +3,6 @@ package com.example.campusconnect1
 import com.google.firebase.firestore.DocumentId
 import java.util.Date
 
-// 👇 UPDATE MODEL USER
 data class User(
     val uid: String = "",
     val email: String = "",
@@ -22,7 +21,6 @@ data class User(
     val savedPostIds: List<String> = emptyList()
 )
 
-// ... (Model Post, Group, dll biarkan sama) ...
 data class Post(
     @DocumentId val postId: String = "",
     val authorId: String = "",
@@ -51,12 +49,15 @@ data class Group(
 )
 
 data class Comment(
+    @DocumentId val id: String = "",
     val commentId: String = "",
     val postId: String = "",
     val authorId: String = "",
     val authorName: String = "",
     val text: String = "",
-    val timestamp: Date? = null
+    val timestamp: Date? = null,
+    val voteCount: Int = 0,
+    val likedBy: List<String> = emptyList()
 )
 
 data class University(val universityId: String = "", val name: String = "", val campusLogoUrl: String = "")

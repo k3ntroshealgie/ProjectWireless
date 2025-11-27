@@ -41,7 +41,55 @@ fun HomeScreen(
     // State for features
     val selectedCategory by viewModel.selectedCategoryFilter.collectAsState()
     val currentSortType by viewModel.currentSortType.collectAsState()
+
     var showUniDropdown by remember { mutableStateOf(false) }
+
+    // Dialog States
+    var showDeletePostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var showEditPostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var editPostText by remember { mutableStateOf("") }
+
+    if (showDeletePostDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showDeletePostDialog = null },
+            title = { Text("Delete Post") },
+            text = { Text("Are you sure you want to delete this post?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeletePostDialog?.let { viewModel.deletePost(it) }
+                    showDeletePostDialog = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeletePostDialog = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showEditPostDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showEditPostDialog = null },
+            title = { Text("Edit Post") },
+            text = {
+                OutlinedTextField(
+                    value = editPostText,
+                    onValueChange = { editPostText = it },
+                    label = { Text("Post Content") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 5
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEditPostDialog?.let { viewModel.updatePost(it, editPostText) }
+                    showEditPostDialog = null
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditPostDialog = null }) { Text("Cancel") }
+            }
+        )
+    }
     
     val categories = listOf("All", "Academic", "News", "Event", "Confession", "Lost & Found")
 
@@ -221,10 +269,16 @@ fun HomeScreen(
                             Box(modifier = Modifier.clickable { onPostClick(post.postId) }) {
                                 PostCard(
                                     post = post,
+                                    currentUserId = currentUser?.uid,
                                     onLikeClick = { viewModel.toggleLike(it) },
                                     onCommentClick = { onPostClick(it.postId) },
                                     isBookmarked = isBookmarked,
-                                    onBookmarkClick = { viewModel.toggleBookmark(it) }
+                                    onBookmarkClick = { viewModel.toggleBookmark(it) },
+                                    onEditClick = {
+                                        editPostText = it.text
+                                        showEditPostDialog = it
+                                    },
+                                    onDeleteClick = { showDeletePostDialog = it }
                                 )
                             }
                         }

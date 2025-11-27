@@ -169,4 +169,17 @@ class ProfileViewModel : ViewModel() {
             _isLoading.value = false
         }
     }
+    fun deletePost(post: Post) {
+        val userId = auth.currentUser?.uid ?: return
+        if (post.authorId == userId) {
+            firestore.collection("posts").document(post.postId).delete()
+        }
+    }
+
+    fun updatePost(post: Post, newText: String) {
+        val userId = auth.currentUser?.uid ?: return
+        if (post.authorId == userId) {
+            firestore.collection("posts").document(post.postId).update("text", newText)
+        }
+    }
 }
