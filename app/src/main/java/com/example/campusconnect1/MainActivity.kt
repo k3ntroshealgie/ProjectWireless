@@ -17,6 +17,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.example.campusconnect1.presentation.auth.LoginScreen
+import com.example.campusconnect1.presentation.auth.RegisterScreen
+import com.example.campusconnect1.presentation.group.GroupFeedScreen
+import com.example.campusconnect1.presentation.group.GroupListScreen
+import com.example.campusconnect1.presentation.home.HomeScreen
+import com.example.campusconnect1.presentation.post.CreatePostScreen
+import com.example.campusconnect1.presentation.post.PostDetailScreen
+import com.example.campusconnect1.presentation.profile.ProfileScreen
+import com.example.campusconnect1.presentation.search.SearchScreen
 import com.example.campusconnect1.ui.*
 import com.example.campusconnect1.ui.theme.CampusConnect1Theme
 import com.google.firebase.auth.FirebaseAuth
@@ -108,7 +117,9 @@ class MainActivity : ComponentActivity() {
                             CurrentScreen.LOGIN -> {
                                 LoginScreen(
                                     onLoginSuccess = { currentScreen = CurrentScreen.HOME },
-                                    onNavigateToRegister = { currentScreen = CurrentScreen.REGISTER }
+                                    onNavigateToRegister = {
+                                        currentScreen = CurrentScreen.REGISTER
+                                    }
                                 )
                             }
                             CurrentScreen.REGISTER -> {
@@ -204,11 +215,13 @@ class MainActivity : ComponentActivity() {
                                 CreatePostScreen(
                                     groupId = selectedGroupId,
                                     onPostSuccess = {
-                                        if (selectedGroupId != null) currentScreen = CurrentScreen.GROUP_FEED
+                                        if (selectedGroupId != null) currentScreen =
+                                            CurrentScreen.GROUP_FEED
                                         else currentScreen = CurrentScreen.HOME
                                     },
                                     onBack = {
-                                        if (selectedGroupId != null) currentScreen = CurrentScreen.GROUP_FEED
+                                        if (selectedGroupId != null) currentScreen =
+                                            CurrentScreen.GROUP_FEED
                                         else currentScreen = CurrentScreen.HOME
                                     }
                                 )

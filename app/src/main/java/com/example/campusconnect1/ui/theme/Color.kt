@@ -86,6 +86,24 @@ val SuccessGreen = Color(0xFF10B981)           // Emerald 500
 val WarningOrange = Color(0xFFF59E0B)          // Amber 500
 val InfoBlue = Color(0xFF3B82F6)               // Blue 500
 
+// --- MODERN UI COLORS (Reddit/LinkedIn Style) ---
+val PrimaryBlue = Color(0xFF2563EB)             // Primary Blue
+val PrimaryBlue700 = Color(0xFF1E40AF)          // Darker Blue
+val SecondaryPurple = Color(0xFF9333EA)         // Purple Accent  
+val SuccessGreenAlt = Color(0xFF16A34A)         // Alternative Green
+val TextPrimary = Color(0xFF111827)             // Gray 900
+val TextSecondary = Color(0xFF6B7280)           // Gray 500
+val BorderLight = Color(0xFFE5E7EB)             // Gray 200
+
+// Category Colors
+val CategoryScholarship = Color(0xFF3B82F6)     // Blue
+val CategoryCareer = Color(0xFF9333EA)          // Purple
+val CategoryEvent = Color(0xFF10B981)           // Green
+val CategoryFreelance = Color(0xFFF59E0B)       // Orange
+val CategoryTech = Color(0xFF6366F1)            // Indigo
+val CategorySports = Color(0xFFEF4444)          // Red
+val CategoryMusic = Color(0xFFEC4899)           // Pink
+
 // --- LEGACY COLORS (Keep for backward compatibility during migration) ---
 val NeoPrimary = LightPrimary
 val NeoSecondary = LightSecondary

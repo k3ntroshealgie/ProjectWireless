@@ -1,13 +1,13 @@
-package com.example.campusconnect1.ui
+package com.example.campusconnect1.presentation.profile
 
 import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.campusconnect1.Post
-import com.example.campusconnect1.RetrofitClient
-import com.example.campusconnect1.User
+import com.example.campusconnect1.data.model.Post
+import com.example.campusconnect1.data.model.User
+import com.example.campusconnect1.data.remote.RetrofitClient
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue

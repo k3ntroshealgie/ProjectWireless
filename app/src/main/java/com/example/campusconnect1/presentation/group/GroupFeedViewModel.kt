@@ -1,9 +1,10 @@
-package com.example.campusconnect1.ui
+package com.example.campusconnect1.presentation.group
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import com.example.campusconnect1.Group
-import com.example.campusconnect1.Post
+import com.example.campusconnect1.data.model.Group
+import com.example.campusconnect1.data.model.Post
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 class GroupFeedViewModel : ViewModel() {
 
     private val firestore = FirebaseFirestore.getInstance()
-    private val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     // Data Grup (Header)
     private val _groupInfo = MutableStateFlow<Group?>(null)

@@ -1,9 +1,9 @@
-package com.example.campusconnect1.auth
+package com.example.campusconnect1.presentation.auth
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.campusconnect1.User
+import com.example.campusconnect1.data.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow

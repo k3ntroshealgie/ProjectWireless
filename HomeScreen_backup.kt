@@ -1,4 +1,4 @@
-package com.example.campusconnect1.ui
+﻿package com.example.campusconnect1.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*

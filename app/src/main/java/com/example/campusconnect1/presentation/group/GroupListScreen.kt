@@ -1,6 +1,17 @@
-package com.example.campusconnect1.ui
+package com.example.campusconnect1.presentation.group
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -8,16 +19,39 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.campusconnect1.Group
+import com.example.campusconnect1.data.model.Group
+import com.example.campusconnect1.presentation.group.GroupViewModel
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +75,7 @@ fun GroupListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Column {
                         Text(
                             text = "Groups",
@@ -88,20 +122,23 @@ fun GroupListScreen(
         }
 
         if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.Companion.fillMaxSize(), contentAlignment = Alignment.Companion.Center) {
                 CircularProgressIndicator()
             }
         } else {
             if (groups.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    Modifier.Companion.fillMaxSize(),
+                    contentAlignment = Alignment.Companion.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.Companion.CenterHorizontally) {
                         Icon(
                             Icons.Default.Group,
                             contentDescription = null,
-                            modifier = Modifier.size(64.dp),
+                            modifier = Modifier.Companion.size(64.dp),
                             tint = MaterialTheme.colorScheme.outlineVariant
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.Companion.height(16.dp))
                         Text(
                             "No groups found in $targetUniversityId",
                             style = MaterialTheme.typography.bodyLarge,
@@ -111,7 +148,7 @@ fun GroupListScreen(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier
+                    modifier = Modifier.Companion
                         .padding(padding)
                         .fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
@@ -143,7 +180,7 @@ fun GroupItem(
     val isMember = group.members.contains(currentUserId)
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.Companion.fillMaxWidth(),
         onClick = onClick,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
@@ -151,18 +188,18 @@ fun GroupItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .padding(16.dp)
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Companion.CenterVertically
         ) {
             // Group Icon Placeholder
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.Companion.size(48.dp)
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                Box(contentAlignment = Alignment.Companion.Center) {
                     Text(
                         text = group.name.take(1).uppercase(),
                         style = MaterialTheme.typography.titleLarge,
@@ -171,13 +208,13 @@ fun GroupItem(
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.Companion.width(16.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.Companion.weight(1f)) {
                 Text(
                     text = group.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Companion.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 if (group.description.isNotEmpty()) {
@@ -188,15 +225,15 @@ fun GroupItem(
                         maxLines = 2
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(modifier = Modifier.Companion.height(4.dp))
+                Row(verticalAlignment = Alignment.Companion.CenterVertically) {
                     Icon(
                         Icons.Default.Person,
                         contentDescription = null,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.Companion.size(14.dp),
                         tint = MaterialTheme.colorScheme.secondary
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.Companion.width(4.dp))
                     Text(
                         text = "${group.memberCount} members",
                         style = MaterialTheme.typography.labelSmall,
@@ -205,7 +242,7 @@ fun GroupItem(
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.Companion.width(8.dp))
 
             if (isGuest) {
                 Text(
@@ -217,7 +254,7 @@ fun GroupItem(
                 Button(
                     onClick = onJoin,
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    modifier = Modifier.height(36.dp)
+                    modifier = Modifier.Companion.height(36.dp)
                 ) {
                     Text("Join")
                 }
@@ -226,7 +263,7 @@ fun GroupItem(
                     onClick = {},
                     enabled = false,
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    modifier = Modifier.height(36.dp)
+                    modifier = Modifier.Companion.height(36.dp)
                 ) {
                     Text("Joined")
                 }
@@ -250,7 +287,7 @@ fun CreateGroupDialog(onDismiss: () -> Unit, onCreate: (String, String) -> Unit)
                     onValueChange = { name = it },
                     label = { Text("Group Name") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.Companion.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = desc,
@@ -258,7 +295,7 @@ fun CreateGroupDialog(onDismiss: () -> Unit, onCreate: (String, String) -> Unit)
                     label = { Text("Description") },
                     minLines = 3,
                     maxLines = 5,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.Companion.fillMaxWidth()
                 )
             }
         },

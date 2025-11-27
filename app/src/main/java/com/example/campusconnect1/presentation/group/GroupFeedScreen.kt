@@ -1,4 +1,4 @@
-package com.example.campusconnect1.ui
+package com.example.campusconnect1.presentation.group
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,11 +10,16 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.campusconnect1.data.model.Post
+import com.example.campusconnect1.presentation.home.HomeViewModel
+import com.example.campusconnect1.presentation.components.PostCard
 import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,8 +44,8 @@ fun GroupFeedScreen(
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
     // Dialog States
-    var showDeletePostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
-    var showEditPostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var showDeletePostDialog by remember { mutableStateOf<Post?>(null) }
+    var showEditPostDialog by remember { mutableStateOf<Post?>(null) }
     var editPostText by remember { mutableStateOf("") }
 
     if (showDeletePostDialog != null) {
@@ -135,7 +140,7 @@ fun GroupFeedScreen(
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(bottom = 80.dp), // Space for FAB
+                    contentPadding = PaddingValues(bottom = 80.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Group Info Header

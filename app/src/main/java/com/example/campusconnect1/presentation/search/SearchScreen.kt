@@ -1,8 +1,15 @@
-package com.example.campusconnect1.ui
+package com.example.campusconnect1.presentation.search
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -11,10 +18,32 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,11 +51,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.campusconnect1.Group
-import com.example.campusconnect1.Post
-import com.example.campusconnect1.User
-import com.example.campusconnect1.ui.theme.*
+import com.example.campusconnect1.data.model.Group
+import com.example.campusconnect1.data.model.Post
+import com.example.campusconnect1.data.model.User
+import com.example.campusconnect1.presentation.group.GroupViewModel
+import com.example.campusconnect1.presentation.home.HomeViewModel
+import com.example.campusconnect1.presentation.components.PostCard
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 enum class SearchType { POSTS, USERS, GROUPS }
 
@@ -44,10 +77,10 @@ fun SearchScreen(
     val groups by homeViewModel.allGroupsInUni.collectAsState()
     val searchText by homeViewModel.searchText.collectAsState()
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-    
+
     // Dialog States
-    var showDeletePostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
-    var showEditPostDialog by remember { mutableStateOf<com.example.campusconnect1.Post?>(null) }
+    var showDeletePostDialog by remember { mutableStateOf<Post?>(null) }
+    var showEditPostDialog by remember { mutableStateOf<Post?>(null) }
     var editPostText by remember { mutableStateOf("") }
 
     if (showDeletePostDialog != null) {
@@ -76,7 +109,7 @@ fun SearchScreen(
                     value = editPostText,
                     onValueChange = { editPostText = it },
                     label = { Text("Post Content") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.Companion.fillMaxWidth(),
                     maxLines = 5
                 )
             },
@@ -91,7 +124,7 @@ fun SearchScreen(
             }
         )
     }
-    
+
     var selectedTab by remember { mutableStateOf(SearchType.POSTS) }
     val tabTitles = listOf("Posts", "Users", "Groups")
 
@@ -123,37 +156,49 @@ fun SearchScreen(
                             Text("Search...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         },
                         leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         },
                         trailingIcon = {
                             if (searchText.isNotEmpty()) {
                                 IconButton(onClick = { homeViewModel.onSearchTextChange("") }) {
-                                    Icon(Icons.Default.Close, "Clear", tint = MaterialTheme.colorScheme.onSurface)
+                                    Icon(
+                                        Icons.Default.Close,
+                                        "Clear",
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
                             }
                         },
                         singleLine = true,
                         colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
+                            focusedContainerColor = Color.Companion.Transparent,
+                            unfocusedContainerColor = Color.Companion.Transparent,
                             focusedTextColor = MaterialTheme.colorScheme.onSurface,
                             unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
+                            focusedIndicatorColor = Color.Companion.Transparent,
+                            unfocusedIndicatorColor = Color.Companion.Transparent
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.Companion.fillMaxWidth()
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Column(modifier = Modifier.Companion.padding(padding).fillMaxSize()) {
 
             PrimaryTabRow(
                 selectedTabIndex = selectedTab.ordinal,
@@ -161,7 +206,7 @@ fun SearchScreen(
                 contentColor = MaterialTheme.colorScheme.primary,
                 indicator = {
                     TabRowDefaults.PrimaryIndicator(
-                        modifier = Modifier.tabIndicatorOffset(selectedTab.ordinal),
+                        modifier = Modifier.Companion.tabIndicatorOffset(selectedTab.ordinal),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -176,7 +221,7 @@ fun SearchScreen(
             }
 
             LazyColumn(
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .fillMaxSize()
                     .padding(top = 8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
@@ -200,7 +245,7 @@ fun SearchScreen(
                                         showEditPostDialog = it
                                     },
                                     onDeleteClick = { showDeletePostDialog = it },
-                                    modifier = Modifier.clickable { onPostClick(post.postId) }
+                                    modifier = Modifier.Companion.clickable { onPostClick(post.postId) }
                                 )
                             }
                         }
@@ -235,13 +280,13 @@ fun SearchScreen(
 @Composable
 fun EmptyState(message: String) {
     Box(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxWidth()
             .padding(32.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Companion.Center
     ) {
         Text(
-            text = message, 
+            text = message,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -251,30 +296,30 @@ fun EmptyState(message: String) {
 @Composable
 fun UserItem(user: User) {
     ListItem(
-        headlineContent = { 
+        headlineContent = {
             Text(
-                user.fullName, 
+                user.fullName,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            ) 
+                fontWeight = FontWeight.Companion.Bold
+            )
         },
-        supportingContent = { 
+        supportingContent = {
             val subText = if (user.major.isNotEmpty()) user.major else user.nim
-            Text("$subText @ ${user.universityId}") 
+            Text("$subText @ ${user.universityId}")
         },
         leadingContent = {
             Box(
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.secondaryContainer),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Companion.Center
             ) {
                 Text(
                     text = user.fullName.take(1).uppercase(),
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Companion.Bold
                 )
             }
         },
@@ -285,12 +330,12 @@ fun UserItem(user: User) {
 @Composable
 fun GroupSearchItem(group: Group) {
     ListItem(
-        headlineContent = { 
+        headlineContent = {
             Text(
-                group.name, 
+                group.name,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            ) 
+                fontWeight = FontWeight.Companion.Bold
+            )
         },
         supportingContent = { Text("${group.memberCount} members") },
         leadingContent = {
@@ -298,9 +343,12 @@ fun GroupSearchItem(group: Group) {
                 imageVector = Icons.Default.Group,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .size(40.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
+                    .background(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        RoundedCornerShape(8.dp)
+                    )
                     .padding(8.dp)
             )
         },

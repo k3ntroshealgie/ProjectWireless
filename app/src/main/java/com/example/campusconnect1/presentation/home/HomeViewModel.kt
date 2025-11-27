@@ -1,11 +1,11 @@
-package com.example.campusconnect1.ui
+package com.example.campusconnect1.presentation.home
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.campusconnect1.Group
-import com.example.campusconnect1.Post
-import com.example.campusconnect1.User
+import com.example.campusconnect1.data.model.Group
+import com.example.campusconnect1.data.model.Post
+import com.example.campusconnect1.data.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -40,7 +40,11 @@ class HomeViewModel : ViewModel() {
 
     // 👇 LOGIKA FILTER GABUNGAN (Search + Kategori)
     // Ini otomatis update jika rawPosts, searchText, atau category berubah
-    val filteredPosts: StateFlow<List<Post>> = combine(_searchText, _rawPosts, _selectedCategoryFilter) { text, posts, category ->
+    val filteredPosts: StateFlow<List<Post>> = combine(
+        _searchText,
+        _rawPosts,
+        _selectedCategoryFilter
+    ) { text, posts, category ->
         var result = posts
 
         // 1. Filter Kategori
@@ -56,7 +60,7 @@ class HomeViewModel : ViewModel() {
             }
         }
         result
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Companion.WhileSubscribed(5000), emptyList())
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading

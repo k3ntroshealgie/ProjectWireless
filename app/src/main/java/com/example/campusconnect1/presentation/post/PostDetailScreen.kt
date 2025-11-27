@@ -1,8 +1,19 @@
-package com.example.campusconnect1.ui
+package com.example.campusconnect1.presentation.post
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -14,19 +25,42 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.campusconnect1.Comment
-import com.example.campusconnect1.ui.theme.AppShapes
+import com.example.campusconnect1.data.model.Comment
+import com.example.campusconnect1.presentation.components.PostCard
+import com.example.campusconnect1.presentation.post.PostDetailViewModel
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +118,7 @@ fun PostDetailScreen(
                     value = editPostText,
                     onValueChange = { editPostText = it },
                     label = { Text("Post Content") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.Companion.fillMaxWidth(),
                     maxLines = 5
                 )
             },
@@ -126,12 +160,18 @@ fun PostDetailScreen(
                     value = editCommentText,
                     onValueChange = { editCommentText = it },
                     label = { Text("Comment") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.Companion.fillMaxWidth()
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
-                    showEditCommentDialog?.let { viewModel.editComment(postId, it.id, editCommentText) }
+                    showEditCommentDialog?.let {
+                        viewModel.editComment(
+                            postId,
+                            it.id,
+                            editCommentText
+                        )
+                    }
                     showEditCommentDialog = null
                 }) { Text("Save") }
             },
@@ -166,28 +206,32 @@ fun PostDetailScreen(
                 shadowElevation = 8.dp
             ) {
                 Row(
-                    modifier = Modifier
+                    modifier = Modifier.Companion
                         .fillMaxWidth()
                         .padding(16.dp)
                         .navigationBarsPadding()
                         .imePadding(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Companion.CenterVertically
                 ) {
                     OutlinedTextField(
                         value = commentText,
                         onValueChange = { commentText = it },
                         placeholder = { Text("Write a comment...") },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.Companion.weight(1f),
                         shape = RoundedCornerShape(24.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(
+                                alpha = 0.3f
+                            ),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(
+                                alpha = 0.3f
+                            ),
+                            focusedBorderColor = Color.Companion.Transparent,
+                            unfocusedBorderColor = Color.Companion.Transparent
                         ),
                         maxLines = 3
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.Companion.width(8.dp))
                     IconButton(
                         onClick = {
                             viewModel.sendComment(postId, commentText)
@@ -196,7 +240,9 @@ fun PostDetailScreen(
                         enabled = commentText.isNotBlank(),
                         colors = IconButtonDefaults.iconButtonColors(
                             contentColor = MaterialTheme.colorScheme.primary,
-                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                alpha = 0.38f
+                            )
                         )
                     ) {
                         Icon(Icons.Default.Send, contentDescription = "Send")
@@ -206,7 +252,7 @@ fun PostDetailScreen(
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .padding(padding)
                 .fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp)
@@ -218,17 +264,17 @@ fun PostDetailScreen(
                         currentUserId = currentUserId,
                         onLikeClick = { viewModel.toggleLike(it) },
                         onCommentClick = { }, // Already on detail screen
-                        onEditClick = { 
+                        onEditClick = {
                             editPostText = it.text
-                            showEditPostDialog = true 
+                            showEditPostDialog = true
                         },
                         onDeleteClick = { showDeletePostDialog = true }
                     )
-                    
+
                     Text(
                         "Comments (${comments.size})",
                         style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.Companion.padding(horizontal = 16.dp, vertical = 8.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -239,9 +285,9 @@ fun PostDetailScreen(
                     comment = comment,
                     currentUserId = currentUserId,
                     onLikeClick = { viewModel.toggleLikeComment(postId, it) },
-                    onEditClick = { 
+                    onEditClick = {
                         editCommentText = it.text
-                        showEditCommentDialog = it 
+                        showEditCommentDialog = it
                     },
                     onDeleteClick = { showDeleteCommentDialog = it }
                 )
@@ -263,13 +309,13 @@ fun CommentItem(
 
     ListItem(
         headlineContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.Companion.CenterVertically) {
                 Text(
                     comment.authorName,
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Companion.Bold
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.Companion.width(8.dp))
                 // TODO: Add timestamp
             }
         },
@@ -280,28 +326,28 @@ fun CommentItem(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                
+
                 // Comment Actions (Like)
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 4.dp)
+                    verticalAlignment = Alignment.Companion.CenterVertically,
+                    modifier = Modifier.Companion.padding(top = 4.dp)
                 ) {
                     Text(
                         "Like",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (isLiked) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.clickable { onLikeClick(comment) }
+                        fontWeight = if (isLiked) FontWeight.Companion.Bold else FontWeight.Companion.Normal,
+                        modifier = Modifier.Companion.clickable { onLikeClick(comment) }
                     )
                     if (comment.voteCount > 0) {
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.Companion.width(4.dp))
                         Icon(
                             Icons.Default.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(12.dp),
+                            modifier = Modifier.Companion.size(12.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
-                        Spacer(modifier = Modifier.width(2.dp))
+                        Spacer(modifier = Modifier.Companion.width(2.dp))
                         Text(
                             "${comment.voteCount}",
                             style = MaterialTheme.typography.labelSmall,
@@ -313,11 +359,11 @@ fun CommentItem(
         },
         leadingContent = {
             Box(
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.secondaryContainer),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Companion.Center
             ) {
                 Text(
                     text = comment.authorName.take(1).uppercase(),
@@ -329,8 +375,15 @@ fun CommentItem(
         trailingContent = {
             if (currentUserId == comment.authorId) {
                 Box {
-                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More", modifier = Modifier.size(16.dp))
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.Companion.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "More",
+                            modifier = Modifier.Companion.size(16.dp)
+                        )
                     }
                     DropdownMenu(
                         expanded = showMenu,

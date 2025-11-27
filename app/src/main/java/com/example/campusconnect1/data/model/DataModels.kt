@@ -1,4 +1,4 @@
-package com.example.campusconnect1
+package com.example.campusconnect1.data.model
 
 import com.google.firebase.firestore.DocumentId
 import java.util.Date
@@ -25,12 +25,16 @@ data class Post(
     @DocumentId val postId: String = "",
     val authorId: String = "",
     val authorName: String = "",
-    val authorAvatarUrl: String = "",
+    val authorAvatar: String = "👤",        // Emoji avatar for modern UI
+    val authorAvatarUrl: String = "",       // Keep for backward compatibility
     val universityId: String = "",
+    val isAuthorVerified: Boolean = false,  // Verified badge
+    val title: String = "",                 // Post title (bold header)
     val text: String = "",
     val imageUrl: String? = null,
     val category: String = "General",
     val timestamp: Date? = null,
+    val createdAt: Long = System.currentTimeMillis(), // For time formatting
     val voteCount: Int = 0,
     val commentCount: Int = 0,
     val likedBy: List<String> = emptyList(),

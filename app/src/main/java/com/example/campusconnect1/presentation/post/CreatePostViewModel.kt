@@ -1,12 +1,13 @@
-package com.example.campusconnect1.ui
+package com.example.campusconnect1.presentation.post
 
 import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.campusconnect1.Post
-import com.example.campusconnect1.RetrofitClient
+import com.example.campusconnect1.data.model.Post
+import com.example.campusconnect1.data.remote.RetrofitClient
+import com.example.campusconnect1.ml.TextClassifier
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,20 +28,20 @@ sealed interface PostState {
 
 class CreatePostViewModel : ViewModel() {
 
-    private val IMGBB_API_KEY = "7a9ad4504c8c1f520b3cee7763fb7793" // API KEY ANDA
+    private val IMGBB_API_KEY = "7a9ad4504c8c1f520b3cee7763fb7793"
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
     private val _postState = MutableStateFlow<PostState>(PostState.Idle)
     val postState: StateFlow<PostState> = _postState
 
-    // 👇 UPDATE: Tambah param category
-    fun createPost(context: Context, text: String, imageUri: Uri?, category: String, groupId: String? = null) {
+    // Updated: Add title parameter
+    fun createPost(context: Context, title: String, text: String, imageUri: Uri?, category: String, groupId: String? = null) {
         viewModelScope.launch {
             _postState.value = PostState.Loading
             try {
                 // 1. ML CHECK: Deteksi konten toxic
-                val classification = com.example.campusconnect1.ml.TextClassifier.classify(text)
+                val classification = TextClassifier.classify(text)
                 if (classification.isToxic) {
                     Log.w("CreatePost", "Toxic content detected: ${classification.confidence}")
                     throw SecurityException("Post rejected: Toxic content detected.")
@@ -51,6 +52,8 @@ class CreatePostViewModel : ViewModel() {
                 val authorName = userDoc.getString("fullName") ?: "Anonymous"
                 val universityId = userDoc.getString("universityId") ?: "Unknown"
                 val authorAvatarUrl = userDoc.getString("profilePictureUrl") ?: ""
+                val authorAvatar = "👨‍🎓" // TODO: Get from userDoc when User model is updated
+                val isAuthorVerified = userDoc.getBoolean("verified") ?: false
 
                 val isAccountVerified = userDoc.getBoolean("verified") ?: false
                 if (!isAccountVerified) throw IllegalStateException("Account not verified.")
@@ -73,12 +76,16 @@ class CreatePostViewModel : ViewModel() {
                 val newPost = Post(
                     authorId = user.uid,
                     authorName = authorName,
+                    authorAvatar = authorAvatar,
                     authorAvatarUrl = authorAvatarUrl,
+                    isAuthorVerified = isAuthorVerified,
                     universityId = universityId,
+                    title = title,
                     text = text,
                     imageUrl = imageUrl,
                     category = category,
                     timestamp = Date(),
+                    createdAt = System.currentTimeMillis(),
                     voteCount = 0,
                     commentCount = 0,
                     likedBy = emptyList(),
