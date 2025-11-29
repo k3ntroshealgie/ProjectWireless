@@ -3,8 +3,7 @@ package com.example.campusconnect1
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
@@ -14,8 +13,10 @@ import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.campusconnect1.presentation.auth.LoginScreen
 import com.example.campusconnect1.presentation.auth.RegisterScreen
@@ -26,12 +27,13 @@ import com.example.campusconnect1.presentation.post.CreatePostScreen
 import com.example.campusconnect1.presentation.post.PostDetailScreen
 import com.example.campusconnect1.presentation.profile.ProfileScreen
 import com.example.campusconnect1.presentation.search.SearchScreen
+import com.example.campusconnect1.presentation.components.ModernBottomNavBar
 import com.example.campusconnect1.ui.*
 import com.example.campusconnect1.ui.theme.CampusConnect1Theme
 import com.google.firebase.auth.FirebaseAuth
 
 // Enum untuk daftar layar yang tersedia
-enum class CurrentScreen { LOGIN, REGISTER, HOME, CREATE_POST, POST_DETAIL, PROFILE, GROUP_LIST, GROUP_FEED, SEARCH }
+enum class CurrentScreen { LOGIN, REGISTER, HOME, FOR_YOU, CREATE_POST, POST_DETAIL, PROFILE, GROUP_LIST, GROUP_FEED, SEARCH, MESSAGES }
 
 // Data class untuk item Bottom Navigation
 data class BottomNavItem(
@@ -62,46 +64,32 @@ class MainActivity : ComponentActivity() {
                 // Default ke ITB, tapi nanti diupdate oleh HomeScreen
                 var targetGroupUni by remember { mutableStateOf("ITB") }
 
-                // Konfigurasi Menu Bawah
-                val navItems = listOf(
-                    BottomNavItem(CurrentScreen.HOME, "Home", Icons.Outlined.Home, Icons.Filled.Home),
-                    BottomNavItem(CurrentScreen.GROUP_LIST, "Groups", Icons.Outlined.List, Icons.Filled.List),
-                    BottomNavItem(CurrentScreen.PROFILE, "Profile", Icons.Outlined.Person, Icons.Filled.Person),
-                )
 
-                // Bottom Bar hanya muncul di layar utama
-                val showBottomBar = currentScreen in listOf(CurrentScreen.HOME, CurrentScreen.GROUP_LIST, CurrentScreen.PROFILE)
+                // Determine bottom nav selected index
+                val bottomNavIndex = when (currentScreen) {
+                    CurrentScreen.HOME -> 0
+                    CurrentScreen.FOR_YOU -> 1
+                    CurrentScreen.GROUP_LIST -> 2  // Groups becomes index 2 (skipping Create at index 2)
+                    CurrentScreen.MESSAGES -> 3
+                    CurrentScreen.PROFILE -> 4
+                    else -> -1
+                }
 
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                     bottomBar = {
-                        if (showBottomBar) {
-                            NavigationBar(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                tonalElevation = 8.dp
-                            ) {
-                                navItems.forEach { item ->
-                                    val isSelected = currentScreen == item.screen
-                                    NavigationBarItem(
-                                        selected = isSelected,
-                                        onClick = { currentScreen = item.screen },
-                                        label = { Text(item.label) },
-                                        icon = {
-                                            Icon(
-                                                imageVector = if (isSelected) item.selectedIcon else item.icon,
-                                                contentDescription = item.label
-                                            )
-                                        },
-                                        colors = NavigationBarItemDefaults.colors(
-                                            indicatorColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f),
-                                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    )
-                                }
-                            }
+                        if (bottomNavIndex >= 0) {
+                            ModernBottomNavBar(
+                                selectedItem = bottomNavIndex,
+                                onHomeClick = { currentScreen = CurrentScreen.HOME },
+                                onForYouClick = { currentScreen = CurrentScreen.FOR_YOU },
+                                onCreateClick = {
+                                    selectedGroupId = null
+                                    currentScreen = CurrentScreen.CREATE_POST
+                                },
+                                onMessagesClick = { currentScreen = CurrentScreen.MESSAGES },
+                                onProfileClick = { currentScreen = CurrentScreen.PROFILE }
+                            )
                         }
                     }
                 ) { innerPadding ->
@@ -195,6 +183,52 @@ class MainActivity : ComponentActivity() {
                                             currentScreen = CurrentScreen.POST_DETAIL
                                         }
                                     )
+                                }
+                            }
+
+                            // --- FOR YOU ---
+                            CurrentScreen.FOR_YOU -> {
+                                // Placeholder for For You screen
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            "For You Feed",
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            "Coming soon",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            // --- MESSAGES ---
+                            CurrentScreen.MESSAGES -> {
+                                // Placeholder for Messages screen
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            "Messages",
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            "Coming soon",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
 

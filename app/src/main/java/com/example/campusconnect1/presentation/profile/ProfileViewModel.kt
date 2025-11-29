@@ -138,11 +138,11 @@ class ProfileViewModel : ViewModel() {
     // Agar kode tidak terlalu panjang di sini, pastikan Anda tetap menyertakan
     // updateProfileData dan updateProfilePicture yang sudah ada di file Anda sebelumnya.
 
-    fun updateProfileData(newBio: String, newMajor: String, newInstagram: String, newLinkedIn: String) {
+    fun updateProfileData(newBio: String, newMajor: String, newInstagram: String, newGithub: String) {
         val userId = auth.currentUser?.uid ?: return
         viewModelScope.launch {
             try {
-                val updates = mapOf("bio" to newBio, "major" to newMajor, "instagram" to newInstagram, "linkedin" to newLinkedIn)
+                val updates = mapOf("bio" to newBio, "major" to newMajor, "instagram" to newInstagram, "github" to newGithub)
                 firestore.collection("users").document(userId).update(updates).await()
             } catch (e: Exception) { Log.e("ProfileViewModel", "Gagal update profil", e) }
         }

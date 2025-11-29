@@ -1,5 +1,6 @@
 package com.example.campusconnect1.presentation.profile
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -9,8 +10,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -28,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.campusconnect1.data.model.Post
 import com.example.campusconnect1.presentation.components.ModernPostCard
 import com.google.firebase.auth.FirebaseAuth
 
@@ -50,6 +52,8 @@ fun ProfileScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var editBio by remember { mutableStateOf("") }
     var editMajor by remember { mutableStateOf("") }
+    var editInstagram by remember { mutableStateOf("") }
+    var editGithub by remember { mutableStateOf("") }
 
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -62,25 +66,44 @@ fun ProfileScreen(
             onDismissRequest = { showEditDialog = false },
             title = { Text("Edit Profile") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
                     OutlinedTextField(
                         value = editMajor,
                         onValueChange = { editMajor = it },
                         label = { Text("Major") },
+                        placeholder = { Text("e.g., Computer Science") },
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = editBio,
                         onValueChange = { editBio = it },
                         label = { Text("Bio") },
+                        placeholder = { Text("Tell us about yourself") },
                         maxLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editInstagram,
+                        onValueChange = { editInstagram = it },
+                        label = { Text("Instagram") },
+                        placeholder = { Text("@username") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editGithub,
+                        onValueChange = { editGithub = it },
+                        label = { Text("GitHub") },
+                        placeholder = { Text("@username") },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
                 Button(onClick = {
-                    viewModel.updateProfileData(editBio, editMajor, "", "")
+                    viewModel.updateProfileData(editBio, editMajor, editInstagram, editGithub)
                     showEditDialog = false
                 }) { Text("Save") }
             },
@@ -103,6 +126,8 @@ fun ProfileScreen(
                     IconButton(onClick = {
                         editBio = user?.bio ?: ""
                         editMajor = user?.major ?: ""
+                        editInstagram = user?.instagram ?: ""
+                        editGithub = user?.github ?: ""
                         showEditDialog = true
                     }) {
                         Icon(Icons.Default.Edit, "Edit")
@@ -227,6 +252,68 @@ fun ProfileScreen(
                                         .padding(horizontal = 32.dp, vertical = 12.dp)
                                         .fillMaxWidth()
                                 )
+                            }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            // Social Links
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 32.dp)
+                            ) {
+                                if (!user?.instagram.isNullOrEmpty()) {
+                                    val igUsername = user!!.instagram.removePrefix("@")
+                                    AssistChip(
+                                        onClick = {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://instagram.com/$igUsername"))
+                                            context.startActivity(intent)
+                                        },
+                                        label = {
+                                            Text(
+                                                text = "@$igUsername",
+                                                modifier = Modifier.fillMaxWidth(),
+                                                textAlign = TextAlign.Center,
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            )
+                                        },
+                                        leadingIcon = { Icon(Icons.Default.CameraAlt, "Instagram") },
+                                        modifier = Modifier.weight(1f),
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = Color(0xFFE1306C).copy(alpha = 0.1f),
+                                            labelColor = Color(0xFFE1306C),
+                                            leadingIconContentColor = Color(0xFFE1306C)
+                                        )
+                                    )
+                                }
+                                if (!user?.github.isNullOrEmpty()) {
+                                    val ghUsername = user!!.github.removePrefix("@")
+                                    AssistChip(
+                                        onClick = {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$ghUsername"))
+                                            context.startActivity(intent)
+                                        },
+                                        label = {
+                                            Text(
+                                                text = "@$ghUsername",
+                                                modifier = Modifier.fillMaxWidth(),
+                                                textAlign = TextAlign.Center,
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            )
+                                        },
+                                        leadingIcon = { Icon(Icons.Default.Code, "GitHub") },
+                                        modifier = Modifier.weight(1f),
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = Color.Black.copy(alpha = 0.1f),
+                                            labelColor = Color.Black,
+                                            leadingIconContentColor = Color.Black
+                                        )
+                                    )
+                                }
                             }
 
                             Spacer(Modifier.height(16.dp))

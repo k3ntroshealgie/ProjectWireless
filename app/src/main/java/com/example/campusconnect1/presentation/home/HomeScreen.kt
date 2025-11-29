@@ -158,19 +158,8 @@ fun HomeScreen(
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
-        },
-        floatingActionButton = {
-            if (canPost) {
-                FloatingActionButton(
-                    onClick = onFabClick,
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Create Post")
-                }
-            }
         }
     ) { padding ->
-        var selectedTab by remember { mutableStateOf(0) }
         val trendingTags = listOf("#BeasiswaLPDP", "#InfoMagang", "#UjianTengahSemester", "#EventCampus", "#KarirTech")
         
         Column(
@@ -178,32 +167,6 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // TabRow: Home | For You
-            TabRow(
-                selectedTabIndex = selectedTab,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { 
-                        Text(
-                            "Home",
-                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
-                        ) 
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = { 
-                        Text(
-                            "For You",
-                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
-                        ) 
-                    }
-                )
-            }
             
             // Trending Topics
             LazyRow(

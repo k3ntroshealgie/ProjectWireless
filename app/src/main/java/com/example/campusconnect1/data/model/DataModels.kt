@@ -17,6 +17,7 @@ data class User(
     val major: String = "",         // Contoh: "Informatika"
     val instagram: String = "",     // Username IG
     val linkedin: String = "",      // Link LinkedIn
+    val github: String = "",        // Username GitHub
     val interests: List<String> = emptyList(),
     val savedPostIds: List<String> = emptyList()
 )
