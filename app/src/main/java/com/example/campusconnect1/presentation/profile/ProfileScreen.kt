@@ -45,6 +45,7 @@ fun ProfileScreen(
     val myPosts by viewModel.myPosts.collectAsState()
     val savedPosts by viewModel.savedPosts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
     val context = LocalContext.current
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
@@ -54,6 +55,19 @@ fun ProfileScreen(
     var editMajor by remember { mutableStateOf("") }
     var editInstagram by remember { mutableStateOf("") }
     var editGithub by remember { mutableStateOf("") }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show error message in Snackbar
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
+        }
+    }
 
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -96,7 +110,7 @@ fun ProfileScreen(
                         value = editGithub,
                         onValueChange = { editGithub = it },
                         label = { Text("GitHub") },
-                        placeholder = { Text("@username") },
+                        placeholder =  { Text("@username") },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -114,6 +128,7 @@ fun ProfileScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },

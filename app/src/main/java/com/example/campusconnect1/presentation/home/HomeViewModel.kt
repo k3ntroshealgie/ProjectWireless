@@ -136,6 +136,7 @@ class HomeViewModel : ViewModel() {
         firestore.collection("posts")
             .whereEqualTo("universityId", universityId)
             .orderBy(orderByField, Query.Direction.DESCENDING)
+            .limit(20)  // Limit to 20 posts for better performance
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e("HomeViewModel", "Error listening posts", error)

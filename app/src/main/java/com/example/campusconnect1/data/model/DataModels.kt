@@ -1,6 +1,7 @@
 package com.example.campusconnect1.data.model
 
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.PropertyName
 import java.util.Date
 
 data class User(
@@ -29,7 +30,7 @@ data class Post(
     val authorAvatar: String = "👤",        // Emoji avatar for modern UI
     val authorAvatarUrl: String = "",       // Keep for backward compatibility
     val universityId: String = "",
-    val isAuthorVerified: Boolean = false,  // Verified badge
+    var authorVerified: Boolean = false,    // Verified badge (Renamed from isAuthorVerified to match Firestore)
     val title: String = "",                 // Post title (bold header)
     val text: String = "",
     val imageUrl: String? = null,

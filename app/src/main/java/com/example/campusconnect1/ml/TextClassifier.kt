@@ -18,7 +18,7 @@ object TextClassifier {
         "stupid", "fuck", "shit", "bitch", "asshole", "kill yourself", "hate you",
         "dasar bego", "otak udang", "tidak berguna", "menjijikkan",
         "saya akan bunuh diri", "ingin mati", "i want to die", "go to hell",
-        "dasar lemah", "pecundang", "loser", "freak"
+        "dasar lemah", "pecundang", "loser", "freak", "suck"
     )
 
     private val safeData = listOf(

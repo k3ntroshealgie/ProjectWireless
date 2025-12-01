@@ -34,18 +34,23 @@ class PostDetailViewModel : ViewModel() {
     fun loadPost(postId: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                val document = firestore.collection("posts").document(postId).get().await()
-                val post = document.toObject(Post::class.java)
-                _selectedPost.value = post
-
-                // Load comments
-                loadComments(postId)
-            } catch (e: Exception) {
-                Log.e("PostDetailViewModel", "Error loading post", e)
-            } finally {
-                _isLoading.value = false
-            }
+            // Realtime listener for the post itself (likes, comment count)
+            val postListener = firestore.collection("posts").document(postId)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        Log.e("PostDetailViewModel", "Listen failed.", e)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null && snapshot.exists()) {
+                        val post = snapshot.toObject(Post::class.java)
+                        _selectedPost.value = post
+                    }
+                }
+            
+            // Load comments (already realtime)
+            loadComments(postId)
+            
+            _isLoading.value = false
         }
     }
 
@@ -54,11 +59,7 @@ class PostDetailViewModel : ViewModel() {
             .collection("comments")
             .orderBy("timestamp", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    Log.e("PostDetailViewModel", "Listen failed.", e)
-                    return@addSnapshotListener
-                }
-
+                if (e != null) return@addSnapshotListener
                 if (snapshot != null) {
                     val commentsList = snapshot.toObjects(Comment::class.java)
                     _comments.value = commentsList
@@ -70,59 +71,66 @@ class PostDetailViewModel : ViewModel() {
         if (text.isBlank()) return
 
         viewModelScope.launch {
-            val user = auth.currentUser
-            if (user != null) {
-                // Fetch user details for author name
-                val userDoc = firestore.collection("users").document(user.uid).get().await()
-                val userData = userDoc.toObject(User::class.java)
-                val authorName = userData?.fullName ?: "Anonymous"
+            val user = auth.currentUser ?: return@launch
+            
+            // Optimistic update for UI responsiveness
+            val currentPost = _selectedPost.value
+            if (currentPost != null) {
+                _selectedPost.value = currentPost.copy(commentCount = currentPost.commentCount + 1)
+            }
 
-                // Check for toxicity (Placeholder for ML integration)
-                val isToxic = checkToxicity(text)
-                if (isToxic) {
-                    // Handle toxic comment (e.g., show error, reject)
-                    Log.w("PostDetailViewModel", "Toxic comment detected: $text")
-                    return@launch
-                }
+            // Fetch user details
+            val userDoc = firestore.collection("users").document(user.uid).get().await()
+            val userData = userDoc.toObject(User::class.java)
+            val authorName = userData?.fullName ?: "Anonymous"
 
-                val commentId = UUID.randomUUID().toString()
-                val comment = Comment(
-                    commentId = commentId,
-                    postId = postId,
-                    authorId = user.uid,
-                    authorName = authorName,
-                    text = text,
-                    timestamp = Date()
-                )
+            val commentId = UUID.randomUUID().toString()
+            val comment = Comment(
+                commentId = commentId,
+                postId = postId,
+                authorId = user.uid,
+                authorName = authorName,
+                text = text,
+                timestamp = Date()
+            )
 
-                try {
-                    firestore.collection("posts").document(postId)
-                        .collection("comments").document(commentId)
-                        .set(comment)
-                        .await()
+            try {
+                firestore.collection("posts").document(postId)
+                    .collection("comments").document(commentId)
+                    .set(comment)
+                    .await()
 
-                    // Update comment count on post
-                    firestore.collection("posts").document(postId)
-                        .update("commentCount", FieldValue.increment(1))
+                // Update comment count on post
+                firestore.collection("posts").document(postId)
+                    .update("commentCount", FieldValue.increment(1))
 
-                } catch (e: Exception) {
-                    Log.e("PostDetailViewModel", "Error sending comment", e)
+            } catch (e: Exception) {
+                Log.e("PostDetailViewModel", "Error sending comment", e)
+                // Revert optimistic update on failure
+                if (currentPost != null) {
+                    _selectedPost.value = currentPost
                 }
             }
         }
     }
 
     private fun checkToxicity(text: String): Boolean {
-        // TODO: Integrate ML Kit or TensorFlow Lite for toxicity detection
-        // For now, simple keyword check
-        val badWords = listOf("bad", "hate", "stupid") // Example list
+        val badWords = listOf("bad", "hate", "stupid") 
         return badWords.any { text.contains(it, ignoreCase = true) }
     }
 
     fun toggleLike(post: Post) {
         val userId = auth.currentUser?.uid ?: return
-        val postRef = firestore.collection("posts").document(post.postId)
+        
+        // 1. Optimistic Update (Instant UI feedback)
+        val isLiked = post.likedBy.contains(userId)
+        val newLikeCount = if (isLiked) post.voteCount - 1 else post.voteCount + 1
+        val newLikedBy = if (isLiked) post.likedBy - userId else post.likedBy + userId
+        
+        _selectedPost.value = post.copy(voteCount = newLikeCount, likedBy = newLikedBy)
 
+        // 2. Network Request
+        val postRef = firestore.collection("posts").document(post.postId)
         firestore.runTransaction { transaction ->
             val snapshot = transaction.get(postRef)
             val currentLikes = snapshot.getLong("voteCount") ?: 0
@@ -136,13 +144,24 @@ class PostDetailViewModel : ViewModel() {
                 transaction.update(postRef, "voteCount", currentLikes + 1)
                 transaction.update(postRef, "likedBy", likedBy + userId)
             }
+        }.addOnFailureListener {
+            // Revert on failure
+            _selectedPost.value = post
         }
     }
 
-    // --- NEW FEATURES ---
-
     fun toggleLikeComment(postId: String, comment: Comment) {
         val userId = auth.currentUser?.uid ?: return
+        
+        // 1. Optimistic Update
+        val isLiked = comment.likedBy.contains(userId)
+        val newLikeCount = if (isLiked) comment.voteCount - 1 else comment.voteCount + 1
+        val newLikedBy = if (isLiked) comment.likedBy - userId else comment.likedBy + userId
+        
+        val updatedComment = comment.copy(voteCount = newLikeCount, likedBy = newLikedBy)
+        _comments.value = _comments.value.map { if (it.commentId == comment.commentId) updatedComment else it }
+
+        // 2. Network Request
         val commentRef = firestore.collection("posts").document(postId)
             .collection("comments").document(comment.id)
 
@@ -159,6 +178,9 @@ class PostDetailViewModel : ViewModel() {
                 transaction.update(commentRef, "voteCount", currentLikes + 1)
                 transaction.update(commentRef, "likedBy", likedBy + userId)
             }
+        }.addOnFailureListener {
+            // Revert on failure
+            _comments.value = _comments.value.map { if (it.commentId == comment.commentId) comment else it }
         }
     }
 

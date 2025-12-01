@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.campusconnect1.BuildConfig
 import com.example.campusconnect1.data.model.Post
 import com.example.campusconnect1.data.model.User
 import com.example.campusconnect1.data.remote.RetrofitClient
@@ -12,6 +13,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,13 +22,32 @@ import kotlinx.coroutines.tasks.await
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
+import java.io.File
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
-class ProfileViewModel : ViewModel() {
+class ProfileViewModel(application: android.app.Application) : androidx.lifecycle.AndroidViewModel(application) {
 
-    private val IMGBB_API_KEY = "2c12842237f145326b7757264381a895"
+    // API Key rotation support - reads from local.properties
+    private fun getActiveApiKey(): String {
+        val activeKeyName = BuildConfig.IMGBB_ACTIVE_KEY
+        return when (activeKeyName) {
+            "IMGBB_API_KEY_1" -> BuildConfig.IMGBB_API_KEY_1
+            "IMGBB_API_KEY_2" -> BuildConfig.IMGBB_API_KEY_2
+            "IMGBB_API_KEY_3" -> BuildConfig.IMGBB_API_KEY_3
+            else -> BuildConfig.IMGBB_API_KEY_1 // Default fallback
+        }
+    }
+
 
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+
+    // Track all listener registrations for cleanup
+    private val listenerRegistrations = mutableListOf<ListenerRegistration>()
 
     private val _userProfile = MutableStateFlow<User?>(null)
     val userProfile: StateFlow<User?> = _userProfile
@@ -40,7 +61,28 @@ class ProfileViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    // Error message state for user feedback
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
+    // Cloudinary configuration
+    private val cloudinaryConfig = hashMapOf(
+        "cloud_name" to BuildConfig.CLOUDINARY_CLOUD_NAME,
+        "api_key" to BuildConfig.CLOUDINARY_API_KEY,
+        "api_secret" to BuildConfig.CLOUDINARY_API_SECRET
+    )
+
     init {
+        // Initialize Cloudinary
+        if (BuildConfig.CLOUDINARY_CLOUD_NAME.isNotEmpty()) {
+            try {
+                MediaManager.init(getApplication(), cloudinaryConfig)
+                Log.d("ProfileViewModel", "✅ Cloudinary initialized")
+            } catch (e: Exception) {
+                Log.e("ProfileViewModel", "❌ Cloudinary init failed", e)
+            }
+        }
+        
         loadUserProfileAndSavedPosts()
         loadMyPosts()
     }
@@ -50,8 +92,15 @@ class ProfileViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                firestore.collection("users").document(userId)
+                val userListener = firestore.collection("users").document(userId)
                     .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            _errorMessage.value = "Gagal memuat profil: ${error.message}"
+                            Log.e("ProfileViewModel", "Error loading profile", error)
+                            _isLoading.value = false
+                            return@addSnapshotListener
+                        }
+                        
                         if (snapshot != null && snapshot.exists()) {
                             val user = snapshot.toObject(User::class.java)
                             _userProfile.value = user
@@ -65,17 +114,24 @@ class ProfileViewModel : ViewModel() {
                             }
                         }
                     }
+                // Store listener for cleanup
+                listenerRegistrations.add(userListener)
             } catch (e: Exception) {
+                _errorMessage.value = "Terjadi kesalahan saat memuat profil"
                 Log.e("ProfileViewModel", "Error loading profile", e)
             }
             _isLoading.value = false
         }
     }
 
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
     private fun fetchSavedPosts(ids: List<String>) {
         val limitIds = ids.takeLast(10)
         // Menggunakan addSnapshotListener agar status LIKE di tab Saved juga realtime
-        firestore.collection("posts")
+        val savedPostsListener = firestore.collection("posts")
             .whereIn(FieldPath.documentId(), limitIds)
             .addSnapshotListener { snapshot, e ->
                 if (snapshot != null) {
@@ -84,11 +140,13 @@ class ProfileViewModel : ViewModel() {
                     _savedPosts.value = posts.sortedByDescending { it.timestamp }
                 }
             }
+        // Store listener for cleanup
+        listenerRegistrations.add(savedPostsListener)
     }
 
     fun loadMyPosts() {
         val userId = auth.currentUser?.uid ?: return
-        firestore.collection("posts")
+        val myPostsListener = firestore.collection("posts")
             .whereEqualTo("authorId", userId)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
@@ -97,6 +155,8 @@ class ProfileViewModel : ViewModel() {
                     _myPosts.value = snapshot.toObjects(Post::class.java)
                 }
             }
+        // Store listener for cleanup
+        listenerRegistrations.add(myPostsListener)
     }
 
     // 👇 FUNGSI LIKE (Sama seperti Home)
@@ -148,24 +208,98 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
+    // Upload image to Cloudinary
+    private suspend fun uploadImageToCloudinary(imageUri: Uri): String? = suspendCoroutine { continuation ->
+        try {
+            val context = getApplication<android.app.Application>().applicationContext
+            
+            // Convert URI to temp file
+            val inputStream = context.contentResolver.openInputStream(imageUri)
+            val tempFile = File(context.cacheDir, "cloudinary_${System.currentTimeMillis()}.jpg")
+            
+            inputStream?.use { input ->
+                tempFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            
+            Log.d("ProfileViewModel", "📤 Uploading to Cloudinary...")
+            
+            // Upload to Cloudinary
+            MediaManager.get().upload(tempFile.absolutePath)
+                .option("folder", "profile_photos")  // Your folder!
+                .option("resource_type", "image")
+                .callback(object : UploadCallback {
+                    override fun onStart(requestId: String) {
+                        Log.d("ProfileViewModel", "⏳ Upload started")
+                    }
+                    
+                    override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {
+                        val progress = (bytes * 100 / totalBytes).toInt()
+                        Log.d("ProfileViewModel", "📊 Progress: $progress%")
+                    }
+                    
+                    override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                        val url = resultData["secure_url"] as? String
+                        Log.d("ProfileViewModel", "✅ Success: $url")
+                        tempFile.delete()
+                        continuation.resume(url)
+                    }
+                    
+                    override fun onError(requestId: String, error: ErrorInfo) {
+                        Log.e("ProfileViewModel", "❌ Error: ${error.description}")
+                        tempFile.delete()
+                        continuation.resume(null)
+                    }
+                    
+                    override fun onReschedule(requestId: String, error: ErrorInfo) {
+                        Log.w("ProfileViewModel", "⏸️ Rescheduled")
+                    }
+                })
+                .dispatch()
+                
+        } catch (e: Exception) {
+            Log.e("ProfileViewModel", "💥 Exception", e)
+            continuation.resume(null)
+        }
+    }
+
     fun updateProfilePicture(context: Context, imageUri: Uri) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val inputStream = context.contentResolver.openInputStream(imageUri)
-                val bytes = inputStream?.readBytes()
-                inputStream?.close()
-                if (bytes != null) {
-                    val reqFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-                    val body = MultipartBody.Part.createFormData("image", "avatar.jpg", reqFile)
-                    val response = RetrofitClient.instance.uploadImage(IMGBB_API_KEY, body)
-                    if (response.isSuccessful && response.body()?.success == true) {
-                        val newUrl = response.body()?.data?.url ?: return@launch
-                        val userId = auth.currentUser?.uid ?: return@launch
-                        firestore.collection("users").document(userId).update("profilePictureUrl", newUrl).await()
+                // Try Cloudinary first
+                var imageUrl = uploadImageToCloudinary(imageUri)
+                
+                // Fallback to ImgBB if Cloudinary fails
+                if (imageUrl == null) {
+                    Log.w("ProfileViewModel", "Cloudinary failed, trying ImgBB fallback...")
+                    val inputStream = context.contentResolver.openInputStream(imageUri)
+                    val bytes = inputStream?.readBytes()
+                    inputStream?.close()
+                    
+                    if (bytes != null) {
+                        val reqFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+                        val body = MultipartBody.Part.createFormData("image", "avatar.jpg", reqFile)
+                        val response = RetrofitClient.instance.uploadImage(getActiveApiKey(), body)
+                        if (response.isSuccessful && response.body()?.success == true) {
+                            imageUrl = response.body()?.data?.url
+                        }
                     }
                 }
-            } catch (e: Exception) { Log.e("ProfileViewModel", "Failed to update avatar", e) }
+                
+                // Update Firestore with new image URL
+                if (imageUrl != null) {
+                    val userId = auth.currentUser?.uid ?: return@launch
+                    firestore.collection("users").document(userId)
+                        .update("profilePictureUrl", imageUrl).await()
+                    Log.d("ProfileViewModel", "✅ Profile picture updated successfully")
+                } else {
+                    Log.e("ProfileViewModel", "❌ Both Cloudinary and ImgBB uploads failed")
+                }
+            } catch (e: Exception) { 
+                Log.e("ProfileViewModel", "Failed to update avatar", e) 
+            }
             _isLoading.value = false
         }
     }
@@ -181,5 +315,12 @@ class ProfileViewModel : ViewModel() {
         if (post.authorId == userId) {
             firestore.collection("posts").document(post.postId).update("text", newText)
         }
+    }
+
+    override fun onCleared() {
+        // Remove all listeners when ViewModel is destroyed to prevent memory leaks
+        listenerRegistrations.forEach { it.remove() }
+        listenerRegistrations.clear()
+        super.onCleared()
     }
 }

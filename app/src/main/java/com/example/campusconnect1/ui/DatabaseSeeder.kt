@@ -108,7 +108,7 @@ class DatabaseSeeder {
                             authorId = "dummy_user_${UUID.randomUUID()}",
                             authorName = fakeUser,
                             authorAvatar = randomEmoji,        // NEW: Emoji avatar
-                            isAuthorVerified = isVerified,     // NEW: Verified badge
+                            authorVerified = isVerified,     // NEW: Verified badge
                             universityId = uniId,
                             title = title,                      // NEW: Post title
                             text = text,

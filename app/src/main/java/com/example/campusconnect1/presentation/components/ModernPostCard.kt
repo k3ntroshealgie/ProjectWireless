@@ -113,7 +113,7 @@ fun ModernPostCard(
                             )
                             
                             // Verified Badge
-                            if (post.isAuthorVerified) {
+                            if (post.authorVerified) {
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Box(
                                     modifier = Modifier
