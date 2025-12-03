@@ -113,6 +113,26 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Send Password Reset Email
+     */
+    fun resetPassword(email: String) {
+        viewModelScope.launch {
+            _authResult.value = AuthResult(AuthState.LOADING)
+            try {
+                val cleanEmail = email.trim()
+                if (cleanEmail.isEmpty()) {
+                    throw IllegalArgumentException("Please enter your email address")
+                }
+                
+                auth.sendPasswordResetEmail(cleanEmail).await()
+                _authResult.value = AuthResult(AuthState.SUCCESS, "Reset link sent to $cleanEmail")
+            } catch (e: Exception) {
+                _authResult.value = AuthResult(AuthState.ERROR, e.message ?: "Failed to send reset email")
+            }
+        }
+    }
+
     fun resetState() {
         _authResult.value = AuthResult(AuthState.IDLE)
     }

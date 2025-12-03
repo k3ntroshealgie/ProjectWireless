@@ -269,10 +269,31 @@ fun HomeScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { viewModel.refreshPosts() }) {
+                            Text("Refresh")
+                        }
                     }
                 } else {
+                    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    
+                    // Infinite Scroll Logic
+                    val reachedBottom by remember {
+                        derivedStateOf {
+                            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                            lastVisibleItem?.index != 0 && lastVisibleItem?.index == listState.layoutInfo.totalItemsCount - 1
+                        }
+                    }
+                    
+                    LaunchedEffect(reachedBottom) {
+                        if (reachedBottom) {
+                            viewModel.loadMorePosts()
+                        }
+                    }
+
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
+                        state = listState,
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         items(posts) { post ->
@@ -292,6 +313,20 @@ fun HomeScreen(
                                     },
                                     onDeleteClick = { showDeletePostDialog = it }
                                 )
+                            }
+                        }
+                        
+                        // Bottom Loading Indicator
+                        if (isLoading) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                }
                             }
                         }
                     }

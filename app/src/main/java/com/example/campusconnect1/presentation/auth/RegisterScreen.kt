@@ -39,6 +39,9 @@ fun RegisterScreen(
     var nim by remember { mutableStateOf("") }
     var showUniversityDropdown by remember { mutableStateOf(false) }
 
+    // Searchable Dropdown State
+    var searchQuery by remember { mutableStateOf("") }
+
     val authState by authViewModel.authResult.collectAsState()
     val context = LocalContext.current
 
@@ -50,8 +53,15 @@ fun RegisterScreen(
         "UNAIR" to "🏥 Universitas Airlangga",
         "ITS" to "🚀 Institut Teknologi Sepuluh Nopember",
         "UNDIP" to "📚 Universitas Diponegoro",
-        "UNPAD" to "🌟 Universitas Padjadjaran"
+        "UNPAD" to "🌟 Universitas Padjadjaran",
+        "PU" to "🎓 President University"
     )
+
+    // Filter logic
+    val filteredUniversities = universities.filter {
+        it.second.contains(searchQuery, ignoreCase = true) ||
+        it.first.contains(searchQuery, ignoreCase = true)
+    }
 
     LaunchedEffect(authState) {
         when (authState.state) {
@@ -174,15 +184,18 @@ fun RegisterScreen(
 
                     Spacer(Modifier.height(12.dp))
 
-                    // University Dropdown
+                    // University Dropdown (Searchable)
                     ExposedDropdownMenuBox(
                         expanded = showUniversityDropdown,
                         onExpandedChange = { showUniversityDropdown = it }
                     ) {
                         OutlinedTextField(
-                            value = universities.find { it.first == universityId }?.second ?: "",
-                            onValueChange = {},
-                            readOnly = true,
+                            value = searchQuery,
+                            onValueChange = {
+                                searchQuery = it
+                                showUniversityDropdown = true
+                            },
+                            readOnly = false, // Allow typing
                             label = { Text("University") },
                             leadingIcon = { Icon(Icons.Default.School, null) },
                             trailingIcon = {
@@ -191,20 +204,27 @@ fun RegisterScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .menuAnchor(),
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            singleLine = true
                         )
-                        ExposedDropdownMenu(
-                            expanded = showUniversityDropdown,
-                            onDismissRequest = { showUniversityDropdown = false }
-                        ) {
-                            universities.forEach { (id, name) ->
-                                DropdownMenuItem(
-                                    text = { Text(name) },
-                                    onClick = {
-                                        universityId = id
-                                        showUniversityDropdown = false
-                                    }
-                                )
+                        
+                        // Only show menu if there are matches
+                        if (filteredUniversities.isNotEmpty()) {
+                            ExposedDropdownMenu(
+                                expanded = showUniversityDropdown,
+                                onDismissRequest = { showUniversityDropdown = false },
+                                modifier = Modifier.heightIn(max = 300.dp)
+                            ) {
+                                filteredUniversities.forEach { (id, name) ->
+                                    DropdownMenuItem(
+                                        text = { Text(name) },
+                                        onClick = {
+                                            universityId = id
+                                            searchQuery = name // Set text to selected name
+                                            showUniversityDropdown = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }

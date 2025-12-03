@@ -113,22 +113,8 @@ fun ModernPostCard(
                             )
                             
                             // Verified Badge
-                            if (post.authorVerified) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .background(PrimaryBlue, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "✓",
-                                        fontSize = 10.sp,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
+                            // Verified Badge removed as per user request
+
                         }
                         
                         Row(verticalAlignment = Alignment.CenterVertically) {

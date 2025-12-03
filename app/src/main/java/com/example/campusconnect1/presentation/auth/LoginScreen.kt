@@ -32,6 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
+    onNavigateToForgotPassword: () -> Unit,
     authViewModel: AuthViewModel = viewModel()
 ) {
     var email by remember { mutableStateOf("") }
@@ -187,7 +188,7 @@ fun LoginScreen(
 
                     // Forgot Password Link
                     TextButton(
-                        onClick = { /* TODO */ },
+                        onClick = onNavigateToForgotPassword,
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         Text(

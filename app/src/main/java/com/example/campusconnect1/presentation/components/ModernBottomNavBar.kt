@@ -61,9 +61,6 @@ fun ModernBottomNavBar(
                     onClick = onForYouClick
                 )
 
-                // Spacer for FAB
-                Spacer(Modifier.width(72.dp))
-
                 // Messages
                 BottomNavItem(
                     icon = Icons.Default.ChatBubbleOutline,
@@ -80,28 +77,6 @@ fun ModernBottomNavBar(
                     onClick = onProfileClick
                 )
             }
-        }
-
-        // Purple FAB in center (positioned above bottom nav)
-        FloatingActionButton(
-            onClick = onCreateClick,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = 16.dp)
-                .size(56.dp),
-            containerColor = Color(0xFF9333EA),
-            contentColor = Color.White,
-            elevation = FloatingActionButtonDefaults.elevation(
-                defaultElevation = 8.dp,
-                pressedElevation = 12.dp
-            ),
-            shape = CircleShape
-        ) {
-            Icon(
-                Icons.Default.Add,
-                contentDescription = "Create",
-                modifier = Modifier.size(28.dp)
-            )
         }
     }
 }

@@ -8,7 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.campusconnect1.BuildConfig
 import com.example.campusconnect1.data.model.Post
 import com.example.campusconnect1.data.model.User
-import com.example.campusconnect1.data.remote.RetrofitClient
+
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
@@ -19,9 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
+
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
@@ -32,15 +30,7 @@ import kotlin.coroutines.suspendCoroutine
 class ProfileViewModel(application: android.app.Application) : androidx.lifecycle.AndroidViewModel(application) {
 
     // API Key rotation support - reads from local.properties
-    private fun getActiveApiKey(): String {
-        val activeKeyName = BuildConfig.IMGBB_ACTIVE_KEY
-        return when (activeKeyName) {
-            "IMGBB_API_KEY_1" -> BuildConfig.IMGBB_API_KEY_1
-            "IMGBB_API_KEY_2" -> BuildConfig.IMGBB_API_KEY_2
-            "IMGBB_API_KEY_3" -> BuildConfig.IMGBB_API_KEY_3
-            else -> BuildConfig.IMGBB_API_KEY_1 // Default fallback
-        }
-    }
+
 
 
     private val firestore = FirebaseFirestore.getInstance()
@@ -268,24 +258,12 @@ class ProfileViewModel(application: android.app.Application) : androidx.lifecycl
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Try Cloudinary first
+                // Try Cloudinary
                 var imageUrl = uploadImageToCloudinary(imageUri)
                 
-                // Fallback to ImgBB if Cloudinary fails
                 if (imageUrl == null) {
-                    Log.w("ProfileViewModel", "Cloudinary failed, trying ImgBB fallback...")
-                    val inputStream = context.contentResolver.openInputStream(imageUri)
-                    val bytes = inputStream?.readBytes()
-                    inputStream?.close()
-                    
-                    if (bytes != null) {
-                        val reqFile = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-                        val body = MultipartBody.Part.createFormData("image", "avatar.jpg", reqFile)
-                        val response = RetrofitClient.instance.uploadImage(getActiveApiKey(), body)
-                        if (response.isSuccessful && response.body()?.success == true) {
-                            imageUrl = response.body()?.data?.url
-                        }
-                    }
+                     Log.e("ProfileViewModel", "Cloudinary upload failed")
+                     _errorMessage.value = "Gagal mengupload foto profil"
                 }
                 
                 // Update Firestore with new image URL

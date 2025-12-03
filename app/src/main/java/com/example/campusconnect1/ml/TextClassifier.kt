@@ -74,7 +74,7 @@ object TextClassifier {
     }
 
     // --- 4. Classification Logic ---
-    fun classify(text: String): ClassificationResult {
+    suspend fun classify(text: String): ClassificationResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
         val tokens = tokenize(text)
         var logProbToxic = logPriorToxic
         var logProbSafe = logPriorSafe
@@ -99,7 +99,7 @@ object TextClassifier {
         // Threshold: If margin is very small, maybe let it pass or flag as suspicious.
         // Here we'll be strict: if it's more likely toxic, it's toxic.
         
-        return ClassificationResult(
+        ClassificationResult(
             isToxic = isToxic,
             confidence = margin // Positive = Toxic, Negative = Safe
         )

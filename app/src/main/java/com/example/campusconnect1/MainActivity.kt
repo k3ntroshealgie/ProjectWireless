@@ -33,7 +33,7 @@ import com.example.campusconnect1.ui.theme.CampusConnect1Theme
 import com.google.firebase.auth.FirebaseAuth
 
 // Enum untuk daftar layar yang tersedia
-enum class CurrentScreen { LOGIN, REGISTER, HOME, FOR_YOU, CREATE_POST, POST_DETAIL, PROFILE, GROUP_LIST, GROUP_FEED, SEARCH, MESSAGES }
+enum class CurrentScreen { LOGIN, REGISTER, FORGOT_PASSWORD, HOME, FOR_YOU, CREATE_POST, POST_DETAIL, PROFILE, GROUP_LIST, GROUP_FEED, SEARCH, MESSAGES }
 
 // Data class untuk item Bottom Navigation
 data class BottomNavItem(
@@ -107,6 +107,9 @@ class MainActivity : ComponentActivity() {
                                     onLoginSuccess = { currentScreen = CurrentScreen.HOME },
                                     onNavigateToRegister = {
                                         currentScreen = CurrentScreen.REGISTER
+                                    },
+                                    onNavigateToForgotPassword = {
+                                        currentScreen = CurrentScreen.FORGOT_PASSWORD
                                     }
                                 )
                             }
@@ -114,6 +117,11 @@ class MainActivity : ComponentActivity() {
                                 RegisterScreen(
                                     onRegisterSuccess = { currentScreen = CurrentScreen.HOME },
                                     onNavigateToLogin = { currentScreen = CurrentScreen.LOGIN }
+                                )
+                            }
+                            CurrentScreen.FORGOT_PASSWORD -> {
+                                com.example.campusconnect1.presentation.auth.ForgotPasswordScreen(
+                                    onBack = { currentScreen = CurrentScreen.LOGIN }
                                 )
                             }
 
