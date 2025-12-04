@@ -23,6 +23,7 @@ fun ModernBottomNavBar(
     onMessagesClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
+    // ✅ Box wrapper needed for FAB positioning
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -82,7 +83,7 @@ fun ModernBottomNavBar(
             }
         }
 
-        // Center FAB
+        // Center FAB (outside Surface, inside Box)
         FloatingActionButton(
             onClick = onCreateClick,
             containerColor = Color(0xFF2563EB),

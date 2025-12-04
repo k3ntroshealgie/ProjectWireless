@@ -67,6 +67,7 @@ import androidx.compose.runtime.setValue
 fun PostDetailScreen(
     postId: String,
     onBack: () -> Unit,
+    onPostUpdated: () -> Unit = {},  // ← ADD THIS LINE
     viewModel: PostDetailViewModel = viewModel()
 ) {
     LaunchedEffect(postId) {
@@ -262,7 +263,10 @@ fun PostDetailScreen(
                     PostCard(
                         post = postData,
                         currentUserId = currentUserId,
-                        onLikeClick = { viewModel.toggleLike(it) },
+                        onLikeClick = { 
+                            viewModel.toggleLike(it)
+                            onPostUpdated() // ✅ Notify changes
+                        },
                         onCommentClick = { }, // Already on detail screen
                         onEditClick = {
                             editPostText = it.text

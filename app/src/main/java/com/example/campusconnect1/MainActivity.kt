@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -70,6 +71,10 @@ class MainActivity : ComponentActivity() {
                 // Default ke ITB, tapi nanti diupdate oleh HomeScreen
                 var targetGroupUni by remember { mutableStateOf("ITB") }
 
+                // ✅ Smart Refresh: Track if user made changes in PostDetail
+                var hasPostUpdates by remember { mutableStateOf(false) }
+
+
 
                 // Determine bottom nav selected index
                 val bottomNavIndex = when (currentScreen) {
@@ -82,7 +87,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(
-                    containerColor = MaterialTheme.colorScheme.background,
+                    containerColor = Color.White, // ✅ Fix gray background
                     bottomBar = {
                         if (bottomNavIndex >= 0) {
                             ModernBottomNavBar(
@@ -133,7 +138,10 @@ class MainActivity : ComponentActivity() {
 
                             // --- HOME ---
                             CurrentScreen.HOME -> {
+                                // ✅ Smart Refresh: Auto-refresh if user made changes
                                 HomeScreen(
+                                    needsRefresh = hasPostUpdates,
+                                    onRefreshComplete = { hasPostUpdates = false },
                                     onFabClick = {
                                         selectedGroupId = null
                                         currentScreen = CurrentScreen.CREATE_POST
@@ -279,7 +287,8 @@ class MainActivity : ComponentActivity() {
                             CurrentScreen.POST_DETAIL -> {
                                 PostDetailScreen(
                                     postId = selectedPostId,
-                                    onBack = { currentScreen = CurrentScreen.HOME }
+                                    onBack = { currentScreen = CurrentScreen.HOME },
+                                    onPostUpdated = { hasPostUpdates = true } // ✅ Track changes
                                 )
                             }
                         }

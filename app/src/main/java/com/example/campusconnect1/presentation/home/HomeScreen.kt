@@ -32,6 +32,8 @@ import com.example.campusconnect1.ui.theme.TextSecondary
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    needsRefresh: Boolean = false, // ✅ Smart refresh flag
+    onRefreshComplete: () -> Unit = {}, // ✅ Callback after refresh
     onFabClick: () -> Unit,
     onLogout: () -> Unit,
     onPostClick: (String) -> Unit,
@@ -45,7 +47,13 @@ fun HomeScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val currentUser by viewModel.currentUserData.collectAsState()
     
-    // Filter States
+    // ✅ Smart refresh: Auto-trigger when needsRefresh = true
+    LaunchedEffect(needsRefresh) {
+        if (needsRefresh) {
+            viewModel.refreshPosts()
+            onRefreshComplete()
+        }
+    }
     val selectedCategory by viewModel.selectedCategoryFilter.collectAsState()
     val currentSortType by viewModel.currentSortType.collectAsState()
     val tags by viewModel.tags.collectAsState()
