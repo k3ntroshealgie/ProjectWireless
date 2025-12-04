@@ -47,6 +47,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // ✅ FIX: Enable Firestore offline persistence
+        val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        firestore.firestoreSettings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
+            .setPersistenceEnabled(true)
+            .build()
+
         val auth = FirebaseAuth.getInstance()
         // Cek Login: Jika user ada -> Home, jika tidak -> Login
         val startScreen = if (auth.currentUser != null) CurrentScreen.HOME else CurrentScreen.LOGIN
@@ -248,7 +254,8 @@ class MainActivity : ComponentActivity() {
                                     onPostClick = { postId ->
                                         selectedPostId = postId
                                         currentScreen = CurrentScreen.POST_DETAIL
-                                    }
+                                    },
+                                    onLogout = { currentScreen = CurrentScreen.LOGIN } // ✅ Sign out redirects to login
                                 )
                             }
 

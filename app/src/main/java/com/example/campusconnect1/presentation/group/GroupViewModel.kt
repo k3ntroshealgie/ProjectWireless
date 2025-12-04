@@ -63,19 +63,30 @@ class GroupViewModel : ViewModel() {
         val userId = auth.currentUser?.uid ?: return
 
         viewModelScope.launch {
-            // Ambil uni ID user (karena user hanya boleh buat grup di kampusnya sendiri)
-            val userDoc = firestore.collection("users").document(userId).get().await()
-            val myUni = userDoc.getString("universityId") ?: return@launch
+            try {
+                // ✅ FIX: Check if user is verified
+                val userDoc = firestore.collection("users").document(userId).get().await()
+                val myUni = userDoc.getString("universityId") ?: return@launch
+                val isVerified = userDoc.getBoolean("verified") ?: false
 
-            val newGroup = Group(
-                name = name,
-                description = description,
-                universityId = myUni,
-                creatorId = userId,
-                members = listOf(userId),
-                memberCount = 1
-            )
-            firestore.collection("groups").add(newGroup).await()
+                if (!isVerified) {
+                    Log.w("GroupViewModel", "Unverified user attempted to create group")
+                    throw IllegalStateException("Only verified students can create groups")
+                }
+
+                val newGroup = Group(
+                    name = name,
+                    description = description,
+                    universityId = myUni,
+                    creatorId = userId,
+                    members = listOf(userId),
+                    memberCount = 1
+                )
+                firestore.collection("groups").add(newGroup).await()
+            } catch (e: Exception) {
+                Log.e("GroupViewModel", "Error creating group", e)
+                throw e // Re-throw to allow UI to handle
+            }
         }
     }
 

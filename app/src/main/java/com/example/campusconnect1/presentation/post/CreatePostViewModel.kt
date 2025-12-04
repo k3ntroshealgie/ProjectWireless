@@ -117,8 +117,16 @@ class CreatePostViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    // Updated: Add title parameter
-    fun createPost(context: Context, title: String, text: String, imageUri: Uri?, category: String, groupId: String? = null) {
+    // ✅ FIX: Add tags parameter
+    fun createPost(
+        context: Context,
+        title: String,
+        text: String,
+        imageUri: Uri?,
+        category: String,
+        groupId: String? = null,
+        tags: List<String> = emptyList()
+    ) {
         viewModelScope.launch {
             _postState.value = PostState.Loading
             try {
@@ -162,7 +170,8 @@ class CreatePostViewModel(application: Application) : AndroidViewModel(applicati
                     voteCount = 0,
                     commentCount = 0,
                     likedBy = emptyList(),
-                    groupId = groupId
+                    groupId = groupId,
+                    tags = tags // ✅ FIX: Save tags to Firestore
                 )
 
                 firestore.collection("posts").add(newPost).await()

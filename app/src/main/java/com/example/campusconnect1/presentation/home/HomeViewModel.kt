@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,9 @@ class HomeViewModel : ViewModel() {
 
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+
+    // ✅ FIX: Track listeners for cleanup
+    private val listenerRegistrations = mutableListOf<ListenerRegistration>()
 
     // Main Post List (Pagination supported)
     private val _posts = MutableStateFlow<List<Post>>(emptyList())
@@ -77,48 +81,28 @@ class HomeViewModel : ViewModel() {
     private fun startListeningToUser() {
         val userId = auth.currentUser?.uid ?: return
         
-        firestore.collection("users").document(userId)
+        // ✅ FIX: Track listener for cleanup
+        val userListener = firestore.collection("users").document(userId)
             .addSnapshotListener { document, error ->
-                if (error != null) return@addSnapshotListener
+                if (error != null) {
+                    Log.e("HomeViewModel", "User listener error", error)
+                    return@addSnapshotListener
+                }
                 if (document != null && document.exists()) {
                     val user = document.toObject(User::class.java)
                     _currentUserData.value = user
 
                     if (myUniversityId.isEmpty()) {
                         myUniversityId = user?.universityId ?: ""
+                        Log.d("HomeViewModel", "User university: $myUniversityId")
                         switchCampus(myUniversityId)
                     }
                 } else {
-                    // Fallback: Create default user if missing
-                    Log.w("HomeViewModel", "User document missing. Creating default...")
-                    createDefaultUserDocument(userId)
+                    // ⚠️ User document missing - should NOT happen after registration
+                    Log.e("HomeViewModel", "User document not found for $userId!")
                 }
             }
-    }
-
-    private fun createDefaultUserDocument(userId: String) {
-        viewModelScope.launch {
-            try {
-                val firebaseUser = auth.currentUser
-                val email = firebaseUser?.email ?: ""
-                val name = firebaseUser?.displayName ?: "User"
-                
-                val newUser = User(
-                    uid = userId,
-                    email = email,
-                    fullName = name,
-                    universityId = "ITB", // Default fallback
-                    nim = "",
-                    verified = false,
-                    interests = emptyList()
-                )
-                
-                firestore.collection("users").document(userId).set(newUser).await()
-                Log.d("HomeViewModel", "✅ Default user document created")
-            } catch (e: Exception) {
-                Log.e("HomeViewModel", "Failed to create default user", e)
-            }
-        }
+        listenerRegistrations.add(userListener)
     }
 
     fun switchCampus(targetUniversity: String) {
@@ -195,8 +179,6 @@ class HomeViewModel : ViewModel() {
                 }
 
                 // 2. Sorting
-                // Note: Firestore requires an index for queries with whereEqualTo + orderBy on different fields.
-                // Ensure indexes are created in Firebase Console.
                 val orderByField = if (_currentSortType.value == SortType.POPULAR) "voteCount" else "timestamp"
                 query = query.orderBy(orderByField, Query.Direction.DESCENDING)
 
@@ -352,5 +334,12 @@ class HomeViewModel : ViewModel() {
             .addSnapshotListener { snapshot, _ ->
                 if (snapshot != null) _allGroupsInUni.value = snapshot.toObjects(Group::class.java)
             }
+    }
+
+    // ✅ FIX: Cleanup listeners to prevent memory leak
+    override fun onCleared() {
+        listenerRegistrations.forEach { it.remove() }
+        listenerRegistrations.clear()
+        super.onCleared()
     }
 }

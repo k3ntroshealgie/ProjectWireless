@@ -39,6 +39,7 @@ import com.google.firebase.auth.FirebaseAuth
 fun ProfileScreen(
     onBack: () -> Unit,
     onPostClick: (String) -> Unit = {},
+    onLogout: () -> Unit = {}, // ✅ Added logout callback
     viewModel: ProfileViewModel = viewModel()
 ) {
     val user by viewModel.userProfile.collectAsState()
@@ -146,6 +147,13 @@ fun ProfileScreen(
                         showEditDialog = true
                     }) {
                         Icon(Icons.Default.Edit, "Edit")
+                    }
+                    // ✅ Sign Out Button
+                    IconButton(onClick = {
+                        FirebaseAuth.getInstance().signOut()
+                        onLogout()
+                    }) {
+                        Icon(Icons.Default.ExitToApp, "Sign Out", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             )

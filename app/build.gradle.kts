@@ -88,6 +88,7 @@ dependencies {
     implementation("com.cloudinary:cloudinary-android:2.3.1")
     implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.coil.compose)
+    implementation("id.zelory:compressor:3.0.1") // ✅ FIX: Image compression library
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

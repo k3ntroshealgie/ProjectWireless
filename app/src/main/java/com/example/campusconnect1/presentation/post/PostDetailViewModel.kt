@@ -9,6 +9,7 @@ import com.example.campusconnect1.data.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,9 @@ class PostDetailViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
+    // ✅ FIX: Track listeners for cleanup
+    private val listenerRegistrations = mutableListOf<ListenerRegistration>()
+
     private val _selectedPost = MutableStateFlow<Post?>(null)
     val selectedPost: StateFlow<Post?> = _selectedPost.asStateFlow()
 
@@ -34,7 +38,7 @@ class PostDetailViewModel : ViewModel() {
     fun loadPost(postId: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            // Realtime listener for the post itself (likes, comment count)
+            // ✅ FIX: Track listener for cleanup
             val postListener = firestore.collection("posts").document(postId)
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
@@ -46,6 +50,7 @@ class PostDetailViewModel : ViewModel() {
                         _selectedPost.value = post
                     }
                 }
+            listenerRegistrations.add(postListener)
             
             // Load comments (already realtime)
             loadComments(postId)
@@ -55,7 +60,8 @@ class PostDetailViewModel : ViewModel() {
     }
 
     private fun loadComments(postId: String) {
-        firestore.collection("posts").document(postId)
+        // ✅ FIX: Track listener for cleanup
+        val commentsListener = firestore.collection("posts").document(postId)
             .collection("comments")
             .orderBy("timestamp", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, e ->
@@ -65,6 +71,7 @@ class PostDetailViewModel : ViewModel() {
                     _comments.value = commentsList
                 }
             }
+        listenerRegistrations.add(commentsListener)
     }
 
     fun sendComment(postId: String, text: String) {
@@ -133,6 +140,12 @@ class PostDetailViewModel : ViewModel() {
         val postRef = firestore.collection("posts").document(post.postId)
         firestore.runTransaction { transaction ->
             val snapshot = transaction.get(postRef)
+            
+            // ✅ FIX: Add null safety check
+            if (!snapshot.exists()) {
+                throw IllegalStateException("Post no longer exists")
+            }
+            
             val currentLikes = snapshot.getLong("voteCount") ?: 0
             @Suppress("UNCHECKED_CAST")
             val likedBy = snapshot.get("likedBy") as? List<String> ?: emptyList()
@@ -167,6 +180,12 @@ class PostDetailViewModel : ViewModel() {
 
         firestore.runTransaction { transaction ->
             val snapshot = transaction.get(commentRef)
+            
+            // ✅ FIX: Add null safety check
+            if (!snapshot.exists()) {
+                throw IllegalStateException("Comment no longer exists")
+            }
+            
             val currentLikes = snapshot.getLong("voteCount") ?: 0
             @Suppress("UNCHECKED_CAST")
             val likedBy = snapshot.get("likedBy") as? List<String> ?: emptyList()
@@ -198,6 +217,15 @@ class PostDetailViewModel : ViewModel() {
     }
 
     fun deleteComment(postId: String, commentId: String) {
+        // ✅ FIX: Optimistic update to prevent negative count
+        val currentPost = _selectedPost.value
+        if (currentPost != null && currentPost.commentCount > 0) {
+            _selectedPost.value = currentPost.copy(commentCount = currentPost.commentCount - 1)
+        }
+        
+        // Also remove from local comments list
+        _comments.value = _comments.value.filter { it.commentId != commentId }
+        
         firestore.collection("posts").document(postId)
             .collection("comments").document(commentId)
             .delete()
@@ -206,6 +234,15 @@ class PostDetailViewModel : ViewModel() {
                 firestore.collection("posts").document(postId)
                     .update("commentCount", FieldValue.increment(-1))
             }
+            .addOnFailureListener { e ->
+                // ✅ Revert on failure
+                Log.e("PostDetailViewModel", "Failed to delete comment", e)
+                if (currentPost != null) {
+                    _selectedPost.value = currentPost
+                }
+                // Reload comments to restore
+                loadComments(postId)
+            }
     }
 
     fun editComment(postId: String, commentId: String, newText: String) {
@@ -213,5 +250,12 @@ class PostDetailViewModel : ViewModel() {
         firestore.collection("posts").document(postId)
             .collection("comments").document(commentId)
             .update("text", newText)
+    }
+
+    // ✅ FIX: Cleanup listeners to prevent memory leak
+    override fun onCleared() {
+        listenerRegistrations.forEach { it.remove() }
+        listenerRegistrations.clear()
+        super.onCleared()
     }
 }
