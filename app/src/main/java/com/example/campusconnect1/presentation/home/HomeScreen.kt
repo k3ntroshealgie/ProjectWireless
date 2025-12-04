@@ -1,26 +1,33 @@
 ﻿package com.example.campusconnect1.presentation.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.campusconnect1.data.model.Post
+import com.example.campusconnect1.presentation.components.BottomSheet
 import com.example.campusconnect1.presentation.components.ModernPostCard
+import com.example.campusconnect1.ui.theme.PrimaryBlue
+import com.example.campusconnect1.ui.theme.TextPrimary
+import com.example.campusconnect1.ui.theme.TextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,14 +42,17 @@ fun HomeScreen(
 ) {
     val posts by viewModel.filteredPosts.collectAsState()
     val currentUniversity by viewModel.currentViewUniversity.collectAsState()
-    val canPost by viewModel.canPost.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val currentUser by viewModel.currentUserData.collectAsState()
     
-    // State for features
+    // Filter States
     val selectedCategory by viewModel.selectedCategoryFilter.collectAsState()
     val currentSortType by viewModel.currentSortType.collectAsState()
+    val tags by viewModel.tags.collectAsState()
+    val selectedTag by viewModel.selectedTag.collectAsState()
+    val isGeneratingTags by viewModel.isGeneratingTags.collectAsState()
 
+    var showFilterSheet by remember { mutableStateOf(false) }
     var showUniDropdown by remember { mutableStateOf(false) }
 
     // Dialog States
@@ -50,6 +60,7 @@ fun HomeScreen(
     var showEditPostDialog by remember { mutableStateOf<Post?>(null) }
     var editPostText by remember { mutableStateOf("") }
 
+    // --- Dialogs ---
     if (showDeletePostDialog != null) {
         AlertDialog(
             onDismissRequest = { showDeletePostDialog = null },
@@ -91,39 +102,59 @@ fun HomeScreen(
             }
         )
     }
-    
-    val categories = listOf("All", "Academic", "News", "Event", "Confession", "Lost & Found")
-
-    // Notify parent about university changes
-    LaunchedEffect(currentUniversity) {
-        onUniversityChange(currentUniversity)
-    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column(modifier = Modifier.clickable { showUniDropdown = true }) {
-                        Text(
-                            text = "CampusConnect+",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Modern Header
+            Surface(
+                color = Color.White,
+                shadowElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Logo & Campus Selector
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { showUniDropdown = true }
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(PrimaryBlue),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("C", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
                             Text(
-                                text = currentUniversity,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "CampusFeed",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
                             )
-                            Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.ArrowDropDown,
-                                contentDescription = "Switch Campus",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = currentUniversity,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextSecondary
+                                )
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = TextSecondary
+                                )
+                            }
                         }
                         
-                        // University Dropdown
                         DropdownMenu(
                             expanded = showUniDropdown,
                             onDismissRequest = { showUniDropdown = false }
@@ -134,203 +165,294 @@ fun HomeScreen(
                                     onClick = {
                                         viewModel.switchCampus(uni)
                                         showUniDropdown = false
-                                    },
-                                    trailingIcon = {
-                                        if (uni == currentUniversity) {
-                                            Icon(Icons.Default.Check, contentDescription = "Selected")
-                                        }
                                     }
                                 )
                             }
                         }
                     }
-                },
-                actions = {
-                    IconButton(onClick = onSearchClick) {
-                        Icon(Icons.Default.Search, contentDescription = "Search")
+
+                    // Actions
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        IconButton(
+                            onClick = onSearchClick,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(Color(0xFFF3F4F6), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = TextSecondary)
+                        }
                     }
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
+                }
+            }
         }
     ) { padding ->
-        val trendingTags = listOf("#BeasiswaLPDP", "#InfoMagang", "#UjianTengahSemester", "#EventCampus", "#KarirTech")
-        
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .background(Color(0xFFF9FAFB)) // Light gray background
         ) {
             
-            // Trending Topics
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // --- Filter Bar ---
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(trendingTags) { tag ->
-                    SuggestionChip(
-                        onClick = { /* TODO: Filter by tag */ },
-                        label = { Text(tag, style = MaterialTheme.typography.labelSmall) },
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                Column {
+                    Text(
+                        text = if (selectedCategory == "All") "Latest Updates" else "$selectedCategory Updates",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    if (selectedTag != null) {
+                        Text(
+                            text = "Filtered by: $selectedTag",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = PrimaryBlue,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = { showFilterSheet = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = TextSecondary
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                ) {
+                    Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Filter")
+                    if (selectedCategory != "All" || selectedTag != null) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(PrimaryBlue, CircleShape)
+                        )
+                    }
+                }
+            }
+
+            // --- Post List ---
+            if (isLoading && posts.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (posts.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.Search, 
+                            contentDescription = null, 
+                            modifier = Modifier.size(48.dp),
+                            tint = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("No posts found", style = MaterialTheme.typography.titleMedium)
+                        Text("Try changing your filters", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        TextButton(onClick = { 
+                            viewModel.onCategoryFilterChange("All")
+                            viewModel.onTagSelected(null)
+                        }) {
+                            Text("Clear all filters")
+                        }
+                    }
+                }
+            } else {
+                val listState = rememberLazyListState()
+                
+                // Infinite Scroll
+                val reachedBottom by remember {
+                    derivedStateOf {
+                        val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                        lastVisibleItem?.index != 0 && lastVisibleItem?.index == listState.layoutInfo.totalItemsCount - 1
+                    }
+                }
+                
+                LaunchedEffect(reachedBottom) {
+                    if (reachedBottom) viewModel.loadMorePosts()
+                }
+
+                LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(bottom = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(posts) { post ->
+                        val isBookmarked = currentUser?.savedPostIds?.contains(post.postId) == true
+                        
+                        ModernPostCard(
+                            post = post,
+                            currentUserId = currentUser?.uid,
+                            onUpvoteClick = { viewModel.toggleLike(it) },
+                            onCommentClick = { onPostClick(it.postId) },
+                            isBookmarked = isBookmarked,
+                            onBookmarkClick = { viewModel.toggleBookmark(it) },
+                            onEditClick = {
+                                editPostText = it.text
+                                showEditPostDialog = it
+                            },
+                            onDeleteClick = { showDeletePostDialog = it },
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                    
+                    if (isLoading) {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Bottom Sheet Filter ---
+    if (showFilterSheet) {
+        BottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            title = "Filter Content"
+        ) {
+            // 1. Trending Tags
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Trending Tags", style = MaterialTheme.typography.titleSmall)
+                TextButton(
+                    onClick = { viewModel.generateTrendingTags(selectedCategory) },
+                    enabled = !isGeneratingTags
+                ) {
+                    if (isGeneratingTags) {
+                        Text("Generating...", fontSize = 12.sp)
+                    } else {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Refresh with AI", fontSize = 12.sp)
+                    }
+                }
+            }
+            
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                item {
+                    FilterChip(
+                        selected = selectedTag == null,
+                        onClick = { viewModel.onTagSelected(null) },
+                        label = { Text("All Tags") },
+                        enabled = true,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+                items(tags) { tag ->
+                    FilterChip(
+                        selected = selectedTag == tag,
+                        onClick = { viewModel.onTagSelected(if (selectedTag == tag) null else tag) },
+                        label = { Text(tag) },
+                        enabled = true,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PrimaryBlue,
+                            selectedLabelColor = Color.White
                         )
                     )
                 }
             }
             
-            Divider()
-            
-            // 1. Category Filters (LazyRow)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 2. Categories
+            Text("Category", style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val categories = listOf("All", "Academic", "News", "Event", "Confession")
                 items(categories) { category ->
                     FilterChip(
                         selected = selectedCategory == category,
                         onClick = { viewModel.onCategoryFilterChange(category) },
                         label = { Text(category) },
+                        enabled = true,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            selectedContainerColor = Color(0xFFDBEAFE),
+                            selectedLabelColor = Color(0xFF1D4ED8)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = selectedCategory == category,
+                            borderColor = if (selectedCategory == category) Color.Transparent else Color(0xFFE5E7EB)
                         )
                     )
                 }
             }
-            
-            // 2. Sort Options & Info
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 3. Sort Options
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "${posts.size} posts",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("${posts.size} results found", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SuggestionChip(
-                        onClick = { viewModel.switchSortType(SortType.POPULAR) },
-                        label = { Text("Popular") },
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = if (currentSortType == SortType.POPULAR) 
-                                MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
-                        ),
-                        border = if (currentSortType == SortType.POPULAR) null 
-                            else SuggestionChipDefaults.suggestionChipBorder(enabled = true)
-                    )
-                    SuggestionChip(
-                        onClick = { viewModel.switchSortType(SortType.NEWEST) },
-                        label = { Text("Newest") },
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = if (currentSortType == SortType.NEWEST) 
-                                MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
-                        ),
-                        border = if (currentSortType == SortType.NEWEST) null 
-                            else SuggestionChipDefaults.suggestionChipBorder(enabled = true)
-                    )
-                }
-            }
-            
-            Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
-
-            // 3. Post List
-            Box(modifier = Modifier.weight(1f)) {
-                if (isLoading && posts.isEmpty()) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                } else if (posts.isEmpty()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "No posts yet",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Be the first to post in your community!",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.refreshPosts() }) {
-                            Text("Refresh")
-                        }
-                    }
-                } else {
-                    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-                    
-                    // Infinite Scroll Logic
-                    val reachedBottom by remember {
-                        derivedStateOf {
-                            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-                            lastVisibleItem?.index != 0 && lastVisibleItem?.index == listState.layoutInfo.totalItemsCount - 1
-                        }
-                    }
-                    
-                    LaunchedEffect(reachedBottom) {
-                        if (reachedBottom) {
-                            viewModel.loadMorePosts()
-                        }
-                    }
-
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        state = listState,
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
-                        items(posts) { post ->
-                            val isBookmarked = currentUser?.savedPostIds?.contains(post.postId) == true
-                            
-                            Box(modifier = Modifier.clickable { onPostClick(post.postId) }) {
-                                ModernPostCard(
-                                    post = post,
-                                    currentUserId = currentUser?.uid,
-                                    onUpvoteClick = { viewModel.toggleLike(it) },
-                                    onCommentClick = { onPostClick(it.postId) },
-                                    isBookmarked = isBookmarked,
-                                    onBookmarkClick = { viewModel.toggleBookmark(it) },
-                                    onEditClick = {
-                                        editPostText = it.text
-                                        showEditPostDialog = it
-                                    },
-                                    onDeleteClick = { showDeletePostDialog = it }
+                Surface(
+                    color = Color(0xFFF3F4F6),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row {
+                        SortType.values().forEach { type ->
+                            val isSelected = currentSortType == type
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) Color.White else Color.Transparent)
+                                    .clickable { viewModel.switchSortType(type) }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = type.name.lowercase().capitalize(),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (isSelected) TextPrimary else TextSecondary,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                             }
                         }
-                        
-                        // Bottom Loading Indicator
-                        if (isLoading) {
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                                }
-                            }
-                        }
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = { showFilterSheet = false },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Show Results")
             }
         }
     }

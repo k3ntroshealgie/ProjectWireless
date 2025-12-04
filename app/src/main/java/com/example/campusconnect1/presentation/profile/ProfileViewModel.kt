@@ -102,6 +102,11 @@ class ProfileViewModel(application: android.app.Application) : androidx.lifecycl
                             } else {
                                 _savedPosts.value = emptyList()
                             }
+                            _isLoading.value = false
+                        } else {
+                            // Document missing! Create default one.
+                            Log.w("ProfileViewModel", "User document missing. Creating default...")
+                            createDefaultUserDocument(userId)
                         }
                     }
                 // Store listener for cleanup
@@ -109,8 +114,37 @@ class ProfileViewModel(application: android.app.Application) : androidx.lifecycl
             } catch (e: Exception) {
                 _errorMessage.value = "Terjadi kesalahan saat memuat profil"
                 Log.e("ProfileViewModel", "Error loading profile", e)
+                _isLoading.value = false
             }
-            _isLoading.value = false
+        }
+    }
+
+    private fun createDefaultUserDocument(userId: String) {
+        viewModelScope.launch {
+            try {
+                val firebaseUser = auth.currentUser
+                val email = firebaseUser?.email ?: ""
+                val name = firebaseUser?.displayName ?: "User"
+                
+                // Create basic user object
+                val newUser = User(
+                    uid = userId,
+                    email = email,
+                    fullName = name,
+                    universityId = "ITB", // Default fallback
+                    nim = "",
+                    verified = false,
+                    interests = emptyList()
+                )
+                
+                firestore.collection("users").document(userId).set(newUser).await()
+                Log.d("ProfileViewModel", "✅ Default user document created")
+                // Listener will auto-trigger and load this new data
+            } catch (e: Exception) {
+                Log.e("ProfileViewModel", "Failed to create default user", e)
+                _errorMessage.value = "Gagal membuat profil default"
+                _isLoading.value = false
+            }
         }
     }
 

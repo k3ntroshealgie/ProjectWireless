@@ -58,6 +58,16 @@ class HomeViewModel : ViewModel() {
     private var myUniversityId: String = ""
     val availableUniversities = listOf("ITB", "UI", "UGM", "ITS", "IPB", "UNAIR", "UNDIP", "UNPAD", "TELKOMU", "PU", "UNSRI")
 
+    // --- Tag State ---
+    private val _tags = MutableStateFlow(listOf("#BeasiswaLPDP", "#InfoMagang", "#UjianTengahSemester", "#CampusLife", "#EventCampus", "#KarirTech"))
+    val tags: StateFlow<List<String>> = _tags.asStateFlow()
+
+    private val _selectedTag = MutableStateFlow<String?>(null)
+    val selectedTag: StateFlow<String?> = _selectedTag.asStateFlow()
+
+    private val _isGeneratingTags = MutableStateFlow(false)
+    val isGeneratingTags: StateFlow<Boolean> = _isGeneratingTags.asStateFlow()
+
     init {
         startListeningToUser()
     }
@@ -78,8 +88,37 @@ class HomeViewModel : ViewModel() {
                         myUniversityId = user?.universityId ?: ""
                         switchCampus(myUniversityId)
                     }
+                } else {
+                    // Fallback: Create default user if missing
+                    Log.w("HomeViewModel", "User document missing. Creating default...")
+                    createDefaultUserDocument(userId)
                 }
             }
+    }
+
+    private fun createDefaultUserDocument(userId: String) {
+        viewModelScope.launch {
+            try {
+                val firebaseUser = auth.currentUser
+                val email = firebaseUser?.email ?: ""
+                val name = firebaseUser?.displayName ?: "User"
+                
+                val newUser = User(
+                    uid = userId,
+                    email = email,
+                    fullName = name,
+                    universityId = "ITB", // Default fallback
+                    nim = "",
+                    verified = false,
+                    interests = emptyList()
+                )
+                
+                firestore.collection("users").document(userId).set(newUser).await()
+                Log.d("HomeViewModel", "✅ Default user document created")
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Failed to create default user", e)
+            }
+        }
     }
 
     fun switchCampus(targetUniversity: String) {
@@ -100,10 +139,30 @@ class HomeViewModel : ViewModel() {
 
     fun onSearchTextChange(text: String) {
         _searchText.value = text
-        // Note: For true search, we might need a separate query or client-side filter on loaded items.
-        // For now, we'll reload to reset pagination if needed, or just filter locally if the list is small.
-        // Implementing simple reload for now to keep it consistent.
         loadPosts(reset = true)
+    }
+
+    fun onTagSelected(tag: String?) {
+        _selectedTag.value = tag
+        loadPosts(reset = true)
+    }
+
+    fun generateTrendingTags(category: String) {
+        viewModelScope.launch {
+            _isGeneratingTags.value = true
+            // Mock AI Generation delay
+            kotlinx.coroutines.delay(1500)
+            
+            val newTags = when (category) {
+                "Academic" -> listOf("#UjianTengahSemester", "#Skripsi", "#KRS", "#Beasiswa", "#StudyGroup")
+                "News" -> listOf("#CampusNews", "#Pengumuman", "#Rektorat", "#KalenderAkademik")
+                "Event" -> listOf("#EventCampus", "#Seminar", "#Workshop", "#MusicFest", "#Lomba")
+                "Confession" -> listOf("#Confession", "#Curhat", "#Spotted", "#Funny", "#LoveLife")
+                else -> listOf("#BeasiswaLPDP", "#InfoMagang", "#UjianTengahSemester", "#CampusLife", "#EventCampus")
+            }
+            _tags.value = newTags
+            _isGeneratingTags.value = false
+        }
     }
 
     // --- Pagination Logic ---
@@ -158,16 +217,23 @@ class HomeViewModel : ViewModel() {
                         isLastPage = true
                     }
 
-                    // Client-side Search Filter (Temporary compromise until full-text search service)
-                    // We only filter the *new* batch here. Ideally, search should be its own mode.
+                    // Client-side Search & Tag Filter
                     val searchText = _searchText.value
-                    val filteredBatch = if (searchText.isNotBlank()) {
-                        newPosts.filter { 
-                            it.text.contains(searchText, ignoreCase = true) || 
-                            it.authorName.contains(searchText, ignoreCase = true) 
-                        }
-                    } else {
-                        newPosts
+                    val selectedTag = _selectedTag.value
+
+                    val filteredBatch = newPosts.filter { post ->
+                        val matchesSearch = if (searchText.isNotBlank()) {
+                            post.text.contains(searchText, ignoreCase = true) || 
+                            post.authorName.contains(searchText, ignoreCase = true)
+                        } else true
+
+                        val matchesTag = if (selectedTag != null) {
+                            val tagClean = selectedTag.removePrefix("#")
+                            post.tags.any { it.contains(tagClean, ignoreCase = true) } ||
+                            post.text.contains(tagClean, ignoreCase = true)
+                        } else true
+
+                        matchesSearch && matchesTag
                     }
 
                     if (reset) {

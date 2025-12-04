@@ -61,6 +61,9 @@ fun ModernBottomNavBar(
                     onClick = onForYouClick
                 )
 
+                // Spacer for FAB
+                Spacer(modifier = Modifier.width(48.dp))
+
                 // Messages
                 BottomNavItem(
                     icon = Icons.Default.ChatBubbleOutline,
@@ -77,6 +80,25 @@ fun ModernBottomNavBar(
                     onClick = onProfileClick
                 )
             }
+        }
+
+        // Center FAB
+        FloatingActionButton(
+            onClick = onCreateClick,
+            containerColor = Color(0xFF2563EB),
+            contentColor = Color.White,
+            shape = CircleShape,
+            elevation = FloatingActionButtonDefaults.elevation(4.dp),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = 4.dp)
+                .size(56.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Create Post",
+                modifier = Modifier.size(28.dp)
+            )
         }
     }
 }

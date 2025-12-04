@@ -41,7 +41,8 @@ data class Post(
     val commentCount: Int = 0,
     val likedBy: List<String> = emptyList(),
     val groupId: String? = null,
-    val groupName: String? = null
+    val groupName: String? = null,
+    val tags: List<String> = emptyList()
 )
 
 data class Group(
